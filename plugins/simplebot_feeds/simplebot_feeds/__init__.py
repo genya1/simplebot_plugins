@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
+import os
 from threading import Thread
 from time import sleep
 from typing import Optional
-import os
 
-from .db import DBManager
-from deltabot.hookspec import deltabot_hookimpl
 import feedparser
 import html2text
-# typing:
 from deltabot import DeltaBot
 from deltabot.bot import Replies
 from deltabot.commands import IncomingCommand
-from deltachat import Chat, Contact
+from deltabot.hookspec import deltabot_hookimpl
+from deltachat import Chat, Contact, Message
+from deltachat.capi import lib
+from deltachat.cutil import as_dc_charpointer
 
+from .db import DBManager
 
 version = '1.0.0'
 feedparser.USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0)'
@@ -82,9 +83,9 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
             url, d.get('etag'), modified, get_latest_date(d.entries))
         title = d.feed.get('title') or '-'
         desc = d.feed.get('description') or '-'
-        text = 'Title: {}\n\nURL: {}\n\nDescription: {}\n\n{}'.format(
-            title, url, desc, format_entries(d.entries[:5]))
-        replies.add(text=text)
+        text = 'Title: {}\n\nURL: {}\n\nDescription: {}'.format(
+            title, url, desc)
+        replies.add(text=text, html=format_entries(d.entries[:5]))
         return
 
     if command.message.chat.id in db.get_fchats(feed['url']):
@@ -95,14 +96,15 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
     d = feedparser.parse(feed['url'])
     title = d.feed.get('title') or '-'
     desc = d.feed.get('description') or '-'
-    text = 'Title: {}\n\nURL: {}\n\nDescription: {}\n\n'.format(
+    text = 'Title: {}\n\nURL: {}\n\nDescription: {}'.format(
         title, feed['url'], desc)
 
     if d.entries and feed['latest']:
         latest = tuple(map(int, feed['latest'].split()))
-        text += format_entries(get_old_entries(d.entries, latest)[:5])
-
-    replies.add(text=text)
+        html = format_entries(get_old_entries(d.entries, latest)[:5])
+        replies.add(text=text, html=html)
+    else:
+        replies.add(text=text)
 
 
 def cmd_unsub(command: IncomingCommand, replies: Replies) -> None:
@@ -169,10 +171,12 @@ def _check_feed(f) -> None:
     if not d.entries:
         return
 
-    text = format_entries(d.entries[:50])
+    html = format_entries(d.entries[:50])
     for gid in fchats:
         try:
-            dbot.get_chat(gid).send_text(text)
+            msg = Message.new_empty(dbot.account, "text")
+            lib.dc_msg_set_html(msg._dc_msg, as_dc_charpointer(html))
+            dbot.get_chat(gid).send_msg(msg)
         except ValueError:
             db.remove_fchat(gid)
 
@@ -184,18 +188,20 @@ def _check_feed(f) -> None:
 def format_entries(entries: list) -> str:
     entries_text = []
     for e in entries:
-        t = '{}:\n({})\n\n'.format(
-            e.get('title') or 'NO TITLE', e.get('link') or '-')
+        t = '<a href="{}"><h3>{}</h3></a>\n'.format(
+            e.get('link') or '', e.get('title') or 'NO TITLE')
         pub_date = e.get('published')
         if pub_date:
-            t += '**{}**\n\n'.format(pub_date)
-        desc = e.get('description')
-        if desc:
-            t += '{}\n'.format(html2text.html2text(desc))
-        else:
-            t += '\n\n'
+            t += '<small><em>{}</em></small>parentesis<br>'.format(pub_date)
+        desc = e.get('description') or ''
+        if not desc and e.get('content'):
+            for c in e.get('content'):
+                if c.get('type') == 'text/html':
+                    desc += c['value']
+        if desc and desc != e.get('title'):
+            t += desc
         entries_text.append(t)
-    return '―――――――――――――――\n\n'.join(entries_text)
+    return '<hr>'.join(entries_text)
 
 
 def get_new_entries(entries: list, date: tuple) -> list:
