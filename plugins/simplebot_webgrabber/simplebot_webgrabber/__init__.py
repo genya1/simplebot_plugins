@@ -45,16 +45,75 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     getdefault('max_size', 1024*1024*5)
 
-    dbot.commands.register('/ddg', cmd_ddg)
-    dbot.commands.register('/wt', cmd_wt)
-    dbot.commands.register('/w', cmd_w)
-    dbot.commands.register('/wttr', cmd_wttr)
-    dbot.commands.register('/web', cmd_web)
-    dbot.commands.register('/read', cmd_read)
-    dbot.commands.register('/img', cmd_img)
-    dbot.commands.register('/img1', cmd_img1)
-    dbot.commands.register('/img5', cmd_img5)
-    dbot.commands.register('/lyrics', cmd_lyrics)
+    bot.filters.register(name=__name__, func=filter_messages)
+
+    bot.commands.register('/ddg', cmd_ddg)
+    bot.commands.register('/wt', cmd_wt)
+    bot.commands.register('/w', cmd_w)
+    bot.commands.register('/wttr', cmd_wttr)
+    bot.commands.register('/web', cmd_web)
+    bot.commands.register('/read', cmd_read)
+    bot.commands.register('/img', cmd_img)
+    bot.commands.register('/img1', cmd_img1)
+    bot.commands.register('/img5', cmd_img5)
+    bot.commands.register('/lyrics', cmd_lyrics)
+
+
+# ======== Filters ===============
+
+def filter_messages(message: Message, replies: Replies) -> None:
+    """Process messages containing URLs.
+    """
+    match = re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.text)
+    if not match:
+        return
+    kwargs = dict(quote=message)
+    url = match.group()
+    if url.startswith('https://twitter.com/'):
+        url = url.replace('https://twitter.com/', getdefault('nitter_instance', 'https://nitter.cc/'))
+    with requests.get(url, headers=HEADERS, stream=True) as r:
+        r.raise_for_status()
+        r.encoding = 'utf-8'
+        content_type = r.headers.get('content-type', '').lower()
+        if 'text/html' in content_type:
+            soup = bs4.BeautifulSoup(r.text, 'html5lib')
+            kwargs['text'] = (soup.title and soup.title.get_text().strip()) or 'Page with no title'
+            url = r.url
+            index = url.find('/', 8)
+            if index == -1:
+                root = url
+            else:
+                root = url[:index]
+                url = url.rsplit('/', 1)[0]
+            for a in soup('a', href=True):
+                if a['href'].startswith('mailto:'):
+                    continue
+                a['href'] = re.sub(r'^(//.*)', r'{}:\1'.format(
+                    root.split(':', 1)[0]), a['href'])
+                a['href'] = re.sub(
+                    r'^(/.*)', r'{}\1'.format(root), a['href'])
+                if not re.match(r'^https?://', a['href']):
+                    a['href'] = '{}/{}'.format(url, a['href'])
+            for img in soup('img'):
+                src = img.get('src').strip()
+                if not src or src.lower().startswith('data:'):
+                    continue
+                img['src'] = re.sub(r'^(//.*)', r'{}:\1'.format(
+                    root.split(':', 1)[0]), img['src'])
+                img['src'] = re.sub(
+                    r'^(/.*)', r'{}\1'.format(root), img['src'])
+                if not re.match(r'^https?://', img['src']):
+                    img['src'] = '{}/{}'.format(url, img['src'])
+            kwargs['html'] = str(soup)
+        elif 'image/' in content_type:
+            kwargs['filename'] = 'image.' + re.search('image/(\w+)', content_type).group(1)
+            kwargs['bytefile'] = io.BytesIO(r.content)
+        else:
+            size = r.headers.get('content-size') or '-'
+            ctype = r.headers.get('content-type', '').split(';')[0] or '-'
+            kwargs['text'] = 'Content Type: {}\nContent Size: {}'.format(ctype, size)
+
+    replies.add(**kwargs)
 
 
 # ======== Commands ===============
