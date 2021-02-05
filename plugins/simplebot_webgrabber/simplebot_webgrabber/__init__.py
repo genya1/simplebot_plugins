@@ -70,7 +70,8 @@ def filter_messages(message: Message, replies: Replies) -> None:
     kwargs = dict(quote=message)
     url = match.group()
     if url.startswith('https://twitter.com/'):
-        url = url.replace('https://twitter.com/', getdefault('nitter_instance', 'https://nitter.cc/'))
+        url = url.replace('https://twitter.com', getdefault(
+            'nitter_instance', 'https://nitter.cc'), count=1)
     with requests.get(url, headers=HEADERS, stream=True) as r:
         r.raise_for_status()
         r.encoding = 'utf-8'
