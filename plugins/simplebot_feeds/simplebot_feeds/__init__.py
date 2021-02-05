@@ -188,11 +188,11 @@ def _check_feed(f) -> None:
 def format_entries(entries: list) -> str:
     entries_text = []
     for e in entries:
-        t = '<a href="{}"><h3>{}</h3></a>\n'.format(
+        t = '<a href="{}"><h3>{}</h3></a><br/>'.format(
             e.get('link') or '', e.get('title') or 'NO TITLE')
         pub_date = e.get('published')
         if pub_date:
-            t += '<small><em>{}</em></small>parentesis<br>'.format(pub_date)
+            t += '<small>📆 <em>{}</em></small><br/>'.format(pub_date)
         desc = e.get('description') or ''
         if not desc and e.get('content'):
             for c in e.get('content'):
