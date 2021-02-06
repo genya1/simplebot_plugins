@@ -69,9 +69,11 @@ def filter_messages(message: Message, replies: Replies) -> None:
         return
     kwargs = dict(quote=message)
     url = match.group()
+    nitter = getdefault('nitter_instance', 'https://nitter.cc')
     if url.startswith('https://twitter.com/'):
-        url = url.replace('https://twitter.com', getdefault(
-            'nitter_instance', 'https://nitter.cc'), count=1)
+        url = url.replace('https://twitter.com', nitter, count=1)
+    elif url.startswith('https://mobile.twitter.com/'):
+        url = url.replace('https://mobile.twitter.com/', nitter, count=1)
     with requests.get(url, headers=HEADERS, stream=True) as r:
         r.raise_for_status()
         r.encoding = 'utf-8'
