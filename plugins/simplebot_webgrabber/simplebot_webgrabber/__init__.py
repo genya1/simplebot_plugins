@@ -76,11 +76,11 @@ def filter_messages(message: Message, replies: Replies) -> None:
         url = url.replace('https://mobile.twitter.com/', nitter, count=1)
     with requests.get(url, headers=HEADERS, stream=True) as r:
         r.raise_for_status()
-        r.encoding = 'utf-8'
         content_type = r.headers.get('content-type', '').lower()
         if 'text/html' in content_type:
             soup = bs4.BeautifulSoup(r.text, 'html5lib')
-            kwargs['text'] = (soup.title and soup.title.get_text().strip()) or 'Page with no title'
+            [t.extract() for t in soup('script')]
+            kwargs['text'] = (soup.title and soup.title.get_text().strip()) or 'Page without title'
             url = r.url
             index = url.find('/', 8)
             if index == -1:
