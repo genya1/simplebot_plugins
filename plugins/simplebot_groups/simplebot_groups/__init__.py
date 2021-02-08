@@ -4,6 +4,7 @@ from typing import Generator
 import time
 import io
 import os
+import queue
 import random
 import string
 
@@ -22,15 +23,15 @@ import qrcode
 version = '1.0.0'
 dbot: DeltaBot
 db: DBManager
+channel_posts: queue.Queue = queue.Queue()
 
 
 # ======== Hooks ===============
 
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global dbot, db
+    global dbot
     dbot = bot
-    db = get_db(bot)
 
     getdefault('max_group_size', '999999')
     getdefault('max_topic_size', '500')
@@ -49,6 +50,14 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot.commands.register(
         '/group_chan', cmd_chan, admin=(allow_channels != '1'))
     dbot.commands.register('/group_adminchan', cmd_adminchan, admin=True)
+
+
+@deltabot_hookimpl
+def deltabot_start(bot: DeltaBot) -> None:
+    global db
+    db = get_db(bot)
+
+    Thread(target=_process_channels, daemon=True).start()
 
 
 @deltabot_hookimpl
@@ -112,8 +121,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
         name = get_name(message.get_sender_contact())
         text = '{}:\n{}'.format(name, message.text)
 
-        args = (text, message.filename, get_cchats(ch['id']))
-        Thread(target=send_diffusion, args=args, daemon=True).start()
+        channel_posts.put((text, message.filename, get_cchats(ch['id'])))
     elif ch:
         replies.add(text='❌ Only channel operators can do that.')
 
@@ -466,7 +474,12 @@ def get_name(c: Contact) -> str:
     return '{}({})'.format(c.name, c.addr)
 
 
-def send_diffusion(text: str, filename: str, chats: list) -> None:
+def _process_channels() -> None:
+    while True:
+        _send_diffusion(*channel_posts.get())
+
+
+def _send_diffusion(text: str, filename: str, chats: list) -> None:
     log = "diffusion: id={} chat={} sent with text: {!r}"
     if filename:
         view_type = "file"
