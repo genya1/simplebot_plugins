@@ -41,15 +41,15 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    dbot.commands.register('/group_info', cmd_info)
-    dbot.commands.register('/group_list', cmd_list)
-    dbot.commands.register('/group_me', cmd_me)
-    dbot.commands.register('/group_join', cmd_join)
-    dbot.commands.register('/group_topic', cmd_topic)
-    dbot.commands.register('/group_remove', cmd_remove)
-    dbot.commands.register(
+    bot.commands.register('/group_info', cmd_info)
+    bot.commands.register('/group_list', cmd_list)
+    bot.commands.register('/group_me', cmd_me)
+    bot.commands.register('/group_join', cmd_join)
+    bot.commands.register('/group_topic', cmd_topic)
+    bot.commands.register('/group_remove', cmd_remove)
+    bot.commands.register(
         '/group_chan', cmd_chan, admin=(allow_channels != '1'))
-    dbot.commands.register('/group_adminchan', cmd_adminchan, admin=True)
+    bot.commands.register('/group_adminchan', cmd_adminchan, admin=True)
 
 
 @deltabot_hookimpl
