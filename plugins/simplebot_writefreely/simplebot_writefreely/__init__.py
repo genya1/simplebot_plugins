@@ -26,7 +26,7 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    bot.commands.register(name="/wf_login", func=cmd_login)
+    bot.commands.register(name="/wf_login", func=cmd_login, admin=getdefault('allow_login', '1')=='1')
     bot.commands.register(name="/wf_logout", func=cmd_logout)
     bot.commands.register(name="/wf_bridge", func=cmd_bridge, admin=True)
     bot.commands.register(name="/wf_unbridge", func=cmd_unbridge, admin=True)
@@ -134,3 +134,11 @@ def get_db(bot) -> DBManager:
     if not os.path.exists(path):
         os.makedirs(path)
     return DBManager(os.path.join(path, 'sqlite.db'))
+
+
+def getdefault(key: str, value: str = None) -> str:
+    val = dbot.get(key, scope=__name__)
+    if val is None and value is not None:
+        dbot.set(key, value, scope=__name__)
+        val = value
+    return val
