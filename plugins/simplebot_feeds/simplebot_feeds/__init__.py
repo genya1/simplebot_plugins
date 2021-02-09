@@ -74,8 +74,8 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
             return
         d = feedparser.parse(url)
         bozo_exception = d.get('bozo_exception', '')
-        if d.get('bozo') == 1 and not isinstance(
-                bozo_exception, feedparser.exceptions.CharacterEncodingOverride):
+        if (d.get('bozo') == 1 and not isinstance(
+                bozo_exception, feedparser.exceptions.CharacterEncodingOverride)) or not d.entries:
             replies.add(text='Invalid feed url: {}'.format(url))
             command.bot.logger.warning('Invalid feed %s: %s', url, bozo_exception)
             return
@@ -167,7 +167,7 @@ def _check_feed(f) -> None:
     bozo_exception = d.get('bozo_exception', '')
     if d.get('bozo') == 1 and not isinstance(
             bozo_exception, feedparser.exceptions.CharacterEncodingOverride):
-        dbot.logger.warning('Invalid feed %s: %s', f['url'], bozo_exception)
+        dbot.logger.exception(bozo_exception)
         return
 
     if d.entries and f['latest']:
