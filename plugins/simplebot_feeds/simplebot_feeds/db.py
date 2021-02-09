@@ -31,12 +31,11 @@ class DBManager:
 
     # ==== feeds =====
 
-    def add_feed(self, url: str, gid: int) -> None:
+    def add_feed(self, url: str, etag: str, modified: str, latest: str) -> None:
         url = self.normalize_url(url)
         with self.db:
             self.db.execute('INSERT INTO feeds VALUES (?,?,?,?)',
-                            (url, None, None, None))
-            self.db.execute('INSERT INTO fchats VALUES (?,?)', (gid, url))
+                            (url, etag, modified, latest))
 
     def remove_feed(self, url: str) -> None:
         url = self.normalize_url(url)

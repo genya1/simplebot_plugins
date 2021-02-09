@@ -62,10 +62,12 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
     """Subscribe current chat to the given feed.
     """
-    url = command.payload
+    url = db.normalize_url(command.payload)
     feed = db.get_feed(url)
 
-    if not feed:
+    if feed:
+        d = feedparser.parse(feed['url'])
+    else:
         max_fc = int(getdefault('max_feed_count'))
         if max_fc >= 0 and len(db.get_feeds()) >= max_fc:
             replies.add(text='Sorry, maximum number of feeds reached')
@@ -77,23 +79,26 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
             replies.add(text='Invalid feed url: {}'.format(url))
             command.bot.logger.warning('Invalid feed %s: %s', url, bozo_exception)
             return
-        db.add_feed(url, command.message.chat.id)
-        modified = d.get('modified') or d.get('updated')
-        db.update_feed(
-            url, d.get('etag'), modified, get_latest_date(d.entries))
-        title = d.feed.get('title') or '-'
-        desc = d.feed.get('description') or '-'
-        text = 'Title: {}\n\nURL: {}\n\nDescription: {}'.format(
-            title, url, desc)
-        replies.add(text=text, html=format_entries(d.entries[:5]))
+        feed = dict(
+            url=url,
+            etag=d.get('etag'),
+            modified=d.get('modified') or d.get('updated'),
+            latest=get_latest_date(d.entries),
+        )
+        db.add_feed(url, feed['etag'], feed['modified'], feed['latest'])
+
+    if command.message.chat.is_group():
+        chat = command.message.chat
+    else:
+        chat = command.bot.create_group(
+            d.feed.get('title') or url,
+            [command.message.get_sender_contact()])
+
+    if chat.id in db.get_fchats(feed['url']):
+        replies.add(text='Chat alredy subscribed to that feed.', chat=chat)
         return
 
-    if command.message.chat.id in db.get_fchats(feed['url']):
-        replies.add(text='Chat alredy subscribed to that feed.')
-        return
-
-    db.add_fchat(command.message.chat.id, feed['url'])
-    d = feedparser.parse(feed['url'])
+    db.add_fchat(chat.id, feed['url'])
     title = d.feed.get('title') or '-'
     desc = d.feed.get('description') or '-'
     text = 'Title: {}\n\nURL: {}\n\nDescription: {}'.format(
@@ -102,9 +107,9 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
     if d.entries and feed['latest']:
         latest = tuple(map(int, feed['latest'].split()))
         html = format_entries(get_old_entries(d.entries, latest)[:5])
-        replies.add(text=text, html=html)
+        replies.add(text=text, html=html, chat=chat)
     else:
-        replies.add(text=text)
+        replies.add(text=text, chat=chat)
 
 
 def cmd_unsub(command: IncomingCommand, replies: Replies) -> None:
