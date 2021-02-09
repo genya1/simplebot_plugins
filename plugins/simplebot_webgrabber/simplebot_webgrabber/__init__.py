@@ -112,7 +112,17 @@ def filter_messages(message: Message, replies: Replies) -> None:
             kwargs['filename'] = 'image.' + re.search('image/(\w+)', content_type).group(1)
             kwargs['bytefile'] = io.BytesIO(r.content)
         else:
-            size = r.headers.get('content-size') or '-'
+            size = r.headers.get('content-size')
+            if not size:
+                size = 0
+                max_size = 1024*1024
+                for chunk in r.iter_content(chunk_size=102400):
+                    size += len(chunk)
+                    if size > max_size:
+                        size = '>1MB'
+                        break
+                else:
+                    size = '{:,}'.format(size)
             ctype = r.headers.get('content-type', '').split(';')[0] or '-'
             kwargs['text'] = 'Content Type: {}\nContent Size: {}'.format(ctype, size)
 
