@@ -1,6 +1,5 @@
 
 import os
-from typing import Optional
 
 from .db import DBManager
 
@@ -24,6 +23,8 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot = bot
     db = get_db(bot)
 
+    getdefault('score_badge', '🎖️')
+
     bot.filters.register(name=__name__, func=filter_messages)
 
     bot.commands.register(name="/scoreSet", func=cmd_set, admin=True)
@@ -32,14 +33,37 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies) -> Optional[bool]:
+def filter_messages(message: Message, replies: Replies) -> None:
     """Detect messages like +1 or -1 to increase/decrease score.
     """
-    if not message.quote or not message.text or message.text[0] not in '-+' or not message.text[1:].isdigit() or not dbot.is_admin(message.get_sender_contact().addr):
-        return None
+    if not message.quote:
+        return
+    score = _parse(message.text)
+    if not score:
+        return
+    sender = message.get_sender_contact().addr
+    is_admin = dbot.is_admin(sender)
+    if score < 0 and not is_admin:
+        return
+    if not is_admin and db.get_score(sender) - score < 0:
+        replies.add(text="❌ You can't give what you don't have...",
+                    quote=message)
+        return
 
-    _set_score(message.quote.get_sender_contact().addr, message.text, replies)
-    return True
+    receiver = message.quote.get_sender_contact().addr
+    sender_score = _add_score(sender, -score)
+    receiver_score = _add_score(receiver, score)
+    if is_admin:
+        text = '{0}: {1}{4}'
+    else:
+        text = '{0}: {1}{4}\n{2}: {3}{4}'
+    text = text.format(
+        dbot.get_contact(receiver).name,
+        receiver_score,
+        dbot.get_contact(sender).name,
+        sender_score,
+        getdefault('score_badge'))
+    replies.add(text=text, quote=message)
 
 
 # ======== Commands ===============
@@ -49,7 +73,16 @@ def cmd_set(command: IncomingCommand, replies: Replies) -> None:
 
     Example: `/score foo@example.com +100`
     """
-    _set_score(command.args[0], command.args[1], replies)
+    score = _parse(command.args[1])
+    if not score:
+        replies.add(
+            text='❌ Invalid number, use + or -', quote=command.message)
+    else:
+        score = _add_score(command.args[0], score)
+        name = dbot.get_contact(command.args[0]).name
+        text = '{}: {}{}'.format(name, score, getdefault('score_badge'))
+        replies.add(text=text, quote=command.message)
+
 
 
 def cmd_score(command: IncomingCommand, replies: Replies) -> None:
@@ -58,8 +91,10 @@ def cmd_score(command: IncomingCommand, replies: Replies) -> None:
     Example: `/score`
     """
     addr = command.payload if command.payload else command.message.get_sender_contact().addr
-    replies.add(text='{}: {}🎖️\nFrom: {}🎖️'.format(
-        addr, db.get_score(addr), db.get_score()))
+    name = dbot.get_contact(addr).name
+    badge = getdefault('score_badge')
+    replies.add(text='{0}: {1}/{2}{3}'.format(
+        name, db.get_score(addr), db.get_score(), badge))
 
 
 # ======== Utilities ===============
@@ -71,18 +106,25 @@ def get_db(bot) -> DBManager:
     return DBManager(os.path.join(path, 'sqlite.db'))
 
 
-def _set_score(addr: str, score: str, replies: Replies) -> None:
-    old_score = db.get_score(addr)
-    if score[0] == '+':
-        new_score = old_score + int(score[1:])
-    elif score[0] == '-':
-        new_score = old_score - int(score[1:])
-    else:
-        replies.add(text='❌ Invalid operand, use + or -')
-        return
+def getdefault(key: str, value: str = None) -> str:
+    val = dbot.get(key, scope=__name__)
+    if val is None and value is not None:
+        dbot.set(key, value, scope=__name__)
+        val = value
+    return val
 
-    if new_score != 0:
-        db.set_score(addr, new_score)
-    elif old_score != 0:
+
+def _parse(score: str) -> int:
+    try:
+        return int(score)
+    except ValueError:
+        return 0
+
+
+def _add_score(addr: str, score: int) -> int:
+    score = db.get_score(addr) + score
+    if score == 0:
         db.delete_score(addr)
-    replies.add(text='{}: {}🎖️'.format(dbot.get_contact(addr).name, new_score))
+    else:
+        db.set_score(addr, score)
+    return score
