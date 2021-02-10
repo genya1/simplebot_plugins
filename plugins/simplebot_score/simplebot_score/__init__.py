@@ -49,8 +49,10 @@ def filter_messages(message: Message, replies: Replies) -> None:
         replies.add(text="❌ You can't give what you don't have...",
                     quote=message)
         return
-
     receiver = message.quote.get_sender_contact().addr
+    if sender == receiver:
+        return
+
     sender_score = _add_score(sender, -score)
     receiver_score = _add_score(receiver, score)
     if is_admin:
