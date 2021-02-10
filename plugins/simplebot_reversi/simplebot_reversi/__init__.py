@@ -133,7 +133,7 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
         db.set_game(game['p1'], game['p2'], b.export(), sender)
         p2 = game['p2'] if sender == game['p1'] else game['p1']
         text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
-            b.get_disk(BLACK), sender, b.get_disk(WHITE), p2)
+            b.get_disk(BLACK), dbot.get_contact(sender).name, b.get_disk(WHITE), dbot.get_contact(p2).name)
         replies.add(text=text + run_turn(command.message.chat.id))
     else:
         replies.add(text='There is a game running already')
@@ -167,7 +167,7 @@ def run_turn(gid: int) -> str:
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             turn = '{} {}'.format(disk, p2)
         text = "{} it's your turn...\n\n{}\n\n{}".format(
-            turn, b, b.get_score())
+            dbot.get_contact(turn).name, b, b.get_score())
     else:
         db.set_board(g['p1'], g['p2'], None)
         black, white = result[BLACK], result[WHITE]
@@ -181,7 +181,7 @@ def run_turn(gid: int) -> str:
                 disk = b.get_disk(WHITE)
                 p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
                 winner = '{} {}'.format(disk, p2)
-            text = '🏆 Game over.\n{} Wins!\n\n'.format(winner)
+            text = '🏆 Game over.\n{} Wins!\n\n'.format(dbot.get_contact(winner).name)
         text += '\n\n'.join((
             str(b), b.get_score(), '▶️ Play again? /reversi_new'))
     return text
