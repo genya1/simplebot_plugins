@@ -88,25 +88,21 @@ def filter_messages(message: Message, replies: Replies) -> None:
             else:
                 root = url[:index]
                 url = url.rsplit('/', 1)[0]
-            for a in soup('a', href=True):
-                if a['href'].startswith('mailto:'):
-                    continue
-                a['href'] = re.sub(r'^(//.*)', r'{}:\1'.format(
-                    root.split(':', 1)[0]), a['href'])
-                a['href'] = re.sub(
-                    r'^(/.*)', r'{}\1'.format(root), a['href'])
-                if not re.match(r'^https?://', a['href']):
-                    a['href'] = '{}/{}'.format(url, a['href'])
-            for img in soup('img'):
-                src = img.get('src').strip()
-                if not src or src.lower().startswith('data:'):
-                    continue
-                img['src'] = re.sub(r'^(//.*)', r'{}:\1'.format(
-                    root.split(':', 1)[0]), img['src'])
-                img['src'] = re.sub(
-                    r'^(/.*)', r'{}\1'.format(root), img['src'])
-                if not re.match(r'^https?://', img['src']):
-                    img['src'] = '{}/{}'.format(url, img['src'])
+            tags = (
+                ('a', 'href', 'mailto:'),
+                ('img', 'src', 'data:'),
+                ('link', 'href', None),
+            )
+            for tag, attr, iprefix in tags:
+                for e in soup(tag, attrs={attr: True}):
+                    if iprefix and e[attr].startswith(iprefix):
+                        continue
+                    e[attr] = re.sub(r'^(//.*)', r'{}:\1'.format(
+                        root.split(':', 1)[0]), e[attr])
+                    e[attr] = re.sub(
+                        r'^(/.*)', r'{}\1'.format(root), e[attr])
+                    if not re.match(r'^https?://', e[attr]):
+                        e[attr] = '{}/{}'.format(url, e[attr])
             kwargs['html'] = str(soup)
         elif 'image/' in content_type:
             kwargs['filename'] = 'image.' + re.search('image/(\w+)', content_type).group(1)
