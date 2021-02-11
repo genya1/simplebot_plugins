@@ -91,6 +91,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
             tags = (
                 ('a', 'href', 'mailto:'),
                 ('img', 'src', 'data:'),
+                ('source', 'src', 'data:'),
                 ('link', 'href', None),
             )
             for tag, attr, iprefix in tags:
