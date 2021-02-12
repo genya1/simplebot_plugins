@@ -42,6 +42,7 @@ if __name__ == "__main__":
         install_requires=[
             'simplebot',
             'qrcode[pil]',
+            'Jinja2',
         ],
         entry_points={
             'simplebot.plugins': '{0} = {0}'.format(module_name),

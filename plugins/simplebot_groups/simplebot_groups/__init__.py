@@ -18,6 +18,7 @@ from deltabot.commands import IncomingCommand
 from deltachat import Chat, Contact, Message
 
 import qrcode
+from jinja2 import Template
 
 
 version = '1.0.0'
@@ -167,12 +168,34 @@ def cmd_info(command: IncomingCommand, replies: Replies) -> None:
 def cmd_list(command: IncomingCommand, replies: Replies) -> None:
     """Show the list of public groups and channels.
     """
-    def get_list(groups, chan_mode=False):
-        if chan_mode:
-            fmt = '{0}:\n👤 {4}\n📝 {3}\n{1}\n➡️ {2}\n\n'
-        else:
-            fmt = '{0}:\n👤 {3}\n{1}\n➡️ {2}\n\n'
-        return '―――――――――――――――\n\n'.join(fmt.format(*g) for g in groups)
+    def get_list(chats):
+        return Template('''
+<style>
+.w3-card-2{box-shadow:0 2px 4px 0 rgba(0,0,0,0.16),0 2px 10px 0 rgba(0,0,0,0.12) !important; margin-bottom: 15px;}
+.w3-btn{border:none;display:inline-block;outline:0;padding:6px 16px;vertical-align:middle;overflow:hidden;text-decoration:none !important;color:#fff;background-color:#5a6f78;text-align:center;cursor:pointer;white-space:nowrap}
+.w3-container:after,.w3-container:before{content:"";display:table;clear:both}
+.w3-container{padding:0.01em 16px}
+.w3-right{float:right !important}
+.w3-large{font-size:18px !important}
+.w3-delta,.w3-hover-delta:hover{color:#fff !important;background-color:#5a6f78 !important}
+</style>
+{% for name, topic, gid, last_pub, bot_addr, count in chats %}
+<div class="w3-card-2">
+<header class="w3-container w3-delta">
+<h2>{{ name }}</h2>
+</header>
+<div class="w3-container">
+<p>👤 {{ count }}</p>
+{% if last_pub %}
+📝 {{ last_pub }}
+{% endif %}
+<p>{{ topic }}</p>
+</div>
+<a class="w3-btn w3-large" href="mailto:{{ bot_addr }}?body=/group_leave_{{ gid }}">« Leave</a>
+<a class="w3-btn w3-large w3-right" href="mailto:{{ bot_addr }}?body=/group_join_{{ gid }}">Join »</a>
+</div>
+{% endfor %}
+''').render(chats=chats)
 
     groups = []
     for g in db.get_groups():
@@ -180,18 +203,17 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
         if not chat:
             db.remove_group(g['id'])
             continue
-        groups.append((chat.get_name(), g['topic'] or '-',
-                       '/group_join_g{}'.format(chat.id),
+        groups.append((chat.get_name(),
+                       g['topic'] or '-',
+                       'g{}'.format(chat.id),
+                       None,
+                       dbot.self_contact.addr,
                        len(chat.get_contacts())))
     total_groups = len(groups)
     if groups:
         groups.sort(key=lambda g: g[-1], reverse=True)
-        n = 20
-        fmt = 'Groups ({}/{}):\n\n{}'
-        while groups:
-            some, groups = groups[:n], groups[n:]
-            text = fmt.format(len(some), total_groups, get_list(some))
-            replies.add(text=text, chat=command.message.chat)
+        text = '⬇️ Groups ({}) ⬇️'.format(total_groups)
+        replies.add(text=text, html=get_list(groups))
 
     channels = []
     for ch in db.get_channels():
@@ -202,18 +224,17 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
                 '%d-%m-%Y', time.gmtime(ch['last_pub']))
         else:
             last_pub = '-'
-        channels.append((ch['name'], ch['topic'] or '-',
-                         '/group_join_c{}'.format(ch['id']), last_pub, count))
+        channels.append((ch['name'],
+                         ch['topic'] or '-',
+                         'c{}'.format(ch['id']),
+                         last_pub,
+                         dbot.self_contact.addr,
+                         count))
     total_channels = len(channels)
     if channels:
         channels.sort(key=lambda g: g[-1], reverse=True)
-        n = 20
-        fmt = 'Channels ({}/{}):\n\n{}'
-        while channels:
-            some, channels = channels[:n], channels[n:]
-            text = fmt.format(
-                len(some), total_channels, get_list(some, chan_mode=True))
-            replies.add(text=text, chat=command.message.chat)
+        text = '⬇️ Channels ({}) ⬇️'.format(total_channels)
+        replies.add(text=text, html=get_list(channels))
 
     if 0 == total_groups == total_channels:
         replies.add(text='❌ Empty List')
