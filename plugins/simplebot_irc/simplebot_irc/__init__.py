@@ -175,14 +175,15 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
             g = group
             gsize = len(contacts)
     if g is None:
-        g = dbot.create_group(command.payload, [sender])
-        db.add_cchat(g.id, command.payload)
+        chat = dbot.create_group(command.payload, [sender])
+        db.add_cchat(chat.id, command.payload)
     else:
         add_contact(g, sender)
+        chat = dbot.get_chat(sender)
 
     nick = db.get_nick(sender.addr)
     text = '** You joined {} as {}'.format(command.payload, nick)
-    replies.add(text=text, chat=g)
+    replies.add(text=text, chat=chat)
 
 
 def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
