@@ -191,7 +191,7 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
 {% endif %}
 <p>{{ topic }}</p>
 </div>
-<a class="w3-btn w3-large" href="mailto:{{ bot_addr }}?body=/group_leave_{{ gid }}">« Leave</a>
+<a class="w3-btn w3-large" href="mailto:{{ bot_addr }}?body=/group_remove_{{ gid }}">« Leave</a>
 <a class="w3-btn w3-large w3-right" href="mailto:{{ bot_addr }}?body=/group_join_{{ gid }}">Join »</a>
 </div>
 {% endfor %}
