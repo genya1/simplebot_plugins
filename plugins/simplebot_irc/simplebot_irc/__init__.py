@@ -33,13 +33,13 @@ def deltabot_init(bot: DeltaBot) -> None:
     getdefault('host', 'irc.freenode.net')
     getdefault('port', '6667')
     getdefault('max_group_size', '20')
-    allow_bridging = getdefault('allow_bridging', '1')
+    allow_bridging = getdefault('allow_bridging', '0') == '1'
 
     bot.filters.register(name=__name__, func=filter_messages)
 
     dbot.commands.register('/irc_join', cmd_join)
-    if allow_bridging:
-        dbot.commands.register('/irc_bridge', cmd_bridge)
+    dbot.commands.register(
+        '/irc_bridge', cmd_bridge, admin=not allow_bridging)
     dbot.commands.register('/irc_remove', cmd_remove)
     dbot.commands.register('/irc_topic', cmd_topic)
     dbot.commands.register('/irc_members', cmd_members)
@@ -195,7 +195,8 @@ def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
     if not command.message.chat.is_group():
         replies.add(text="This is not a group")
         return
-    if not db.is_whitelisted(command.payload):
+    addr = command.message.get_sender_contact().addr
+    if not dbot.is_admin(addr) and not db.is_whitelisted(command.payload):
         replies.add(text="That channel isn't in the whitelist")
         return
     channel = db.get_channel_by_gid(command.message.chat.id)
