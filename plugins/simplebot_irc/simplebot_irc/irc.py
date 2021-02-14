@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 import irc.bot
-# typing
+
 from .database import DBManager
 from deltabot import DeltaBot
-# ======
+
+from deltachat import Message
+from deltachat.capi import lib
+from deltachat.cutil import as_dc_charpointer
 
 
 class IRCBot(irc.bot.SingleServerIRCBot):
@@ -23,12 +26,13 @@ class IRCBot(irc.bot.SingleServerIRCBot):
             c.join(channel)
 
     def on_pubmsg(self, c, e) -> None:
-        sender = e.source.split('!')[0]
-        msg = e.arguments[0]
-        channel = e.target
-        for gid in self.db.get_cchats(channel):
-            self.dbot.get_chat(gid).send_text(
-                '{}[irc]:\n{}'.format(sender, msg))
+        sender = '{}[irc]'.format(e.source.split('!')[0])
+        for gid in self.db.get_cchats(e.target):
+            msg = Message.new_empty(self.dbot.account, "text")
+            lib.dc_msg_set_override_sender_name(
+                msg._dc_msg, as_dc_charpointer(sender))
+            msg.set_text(e.arguments[0])
+            self.dbot.get_chat(gid).send_msg(msg)
 
     def on_notopic(self, c, e) -> None:
         chan = self.channels[e.arguments[0]]
