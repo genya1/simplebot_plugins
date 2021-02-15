@@ -32,18 +32,14 @@ def deltabot_init(bot: DeltaBot) -> None:
     getdefault('nick', 'SimpleBot')
     getdefault('host', 'irc.freenode.net')
     getdefault('port', '6667')
-    getdefault('max_group_size', '20')
-    allow_bridging = getdefault('allow_bridging', '0') == '1'
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    dbot.commands.register('/irc_join', cmd_join)
-    dbot.commands.register(
-        '/irc_bridge', cmd_bridge, admin=not allow_bridging)
-    dbot.commands.register('/irc_remove', cmd_remove)
-    dbot.commands.register('/irc_topic', cmd_topic)
-    dbot.commands.register('/irc_members', cmd_members)
-    dbot.commands.register('/irc_nick', cmd_nick)
+    dbot.commands.register('/join', cmd_join)
+    dbot.commands.register('/remove', cmd_remove)
+    dbot.commands.register('/topic', cmd_topic)
+    dbot.commands.register('/names', cmd_members)
+    dbot.commands.register('/nick', cmd_nick)
 
 
 @deltabot_hookimpl
@@ -60,15 +56,22 @@ def deltabot_start(bot: DeltaBot) -> None:
 
 
 @deltabot_hookimpl
+def deltabot_member_added(chat: Chat, contact: Contact) -> None:
+    channel = db.get_channel_by_gid(chat.id)
+    if channel:
+        irc_bridge.preactor.join_channel(contact.addr, channel)
+
+
+@deltabot_hookimpl
 def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
     channel = db.get_channel_by_gid(chat.id)
     if channel:
         me = dbot.self_contact
         if me == contact or len(chat.get_contacts()) <= 1:
-            db.remove_cchat(chat.id)
-            if next(db.get_cchats(channel), None) is None:
-                db.remove_channel(channel)
-                irc_bridge.leave_channel(channel)
+            db.remove_channel(channel)
+            irc_bridge.leave_channel(channel)
+        else:
+            irc_bridge.preactor.leave_channel(contact.addr, channel)
 
 
 # ======== Filters ===============
@@ -80,19 +83,15 @@ def filter_messages(message: Message, replies: Replies):
     if not chan:
         return
 
-    if not message.text or message.filename:
-        replies.add(text='Unsupported message')
+    if message.filename:
+        replies.add(text='WARNING: Attachments are not supported')
+    if not message.text:
         return
 
-    nick = db.get_nick(message.get_sender_contact().addr)
-
+    addr = message.get_sender_contact().addr
     for line in message.text.split('\n'):
-        irc_bridge.send_message(chan, '{}[dc]: {}'.format(nick, line))
+        irc_bridge.preactor.send_message(addr, chan, line)
 
-    text = '{}[dc]: {}'.format(nick, message.text)
-    for g in get_cchats(chan):
-        if g.id != message.chat.id:
-            replies.add(text=text, chat=g)
     return True
 
 
@@ -119,13 +118,8 @@ def cmd_members(command: IncomingCommand, replies: Replies) -> None:
         return
 
     members = 'Members:\n'
-    for g in get_cchats(chan):
-        for c in g.get_contacts():
-            if c != me:
-                members += '• {}[dc]\n'.format(db.get_nick(c.addr))
-
     for m in irc_bridge.get_members(chan):
-        members += '• {}[irc]\n'.format(m)
+        members += '• {}\n'.format(m)
 
     replies.add(text=members)
 
@@ -154,29 +148,21 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     if not command.payload:
         replies.add(text="Wrong syntax")
         return
-    if not db.is_whitelisted(command.payload):
+    if not dbot.is_admin(sender.addr) and not db.is_whitelisted(command.payload):
         replies.add(text="That channel isn't in the whitelist")
         return
 
-    if not db.channel_exists(command.payload):
-        db.add_channel(command.payload)
-        irc_bridge.join_channel(command.payload)
 
-    chats = get_cchats(command.payload)
-    g = None
-    gsize = int(getdefault('max_group_size'))
-    for group in chats:
-        contacts = group.get_contacts()
-        if sender in contacts:
-            replies.add(
-                text='You are already a member of this group', chat=group)
-            return
-        if len(contacts) < gsize:
-            g = group
-            gsize = len(contacts)
+    g = dbot.get_chat(db.get_chat(command.payload))
+    if g and sender in g.get_contacts():
+        replies.add(
+            text='You are already a member of this group', chat=g)
+        return
     if g is None:
         chat = dbot.create_group(command.payload, [sender])
-        db.add_cchat(chat.id, command.payload)
+        db.add_channel(command.payload, chat.id)
+        irc_bridge.join_channel(command.payload)
+        irc_bridge.preactor.join_channel(sender.addr, command.payload)
     else:
         add_contact(g, sender)
         chat = dbot.get_chat(sender)
@@ -184,35 +170,6 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     nick = db.get_nick(sender.addr)
     text = '** You joined {} as {}'.format(command.payload, nick)
     replies.add(text=text, chat=chat)
-
-
-def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
-    """Bridge current group to the given IRC channel.
-    """
-    if not command.payload:
-        replies.add(text="Wrong syntax")
-        return
-    if not command.message.chat.is_group():
-        replies.add(text="This is not a group")
-        return
-    addr = command.message.get_sender_contact().addr
-    if not dbot.is_admin(addr) and not db.is_whitelisted(command.payload):
-        replies.add(text="That channel isn't in the whitelist")
-        return
-    channel = db.get_channel_by_gid(command.message.chat.id)
-    if channel:
-        replies.add(
-            text="This chat is already bridged to channel: {}".format(channel))
-        return
-
-    if not db.channel_exists(command.payload):
-        db.add_channel(command.payload)
-        irc_bridge.join_channel(command.payload)
-
-    db.add_cchat(command.message.chat.id, command.payload)
-    text = '** This chat is now bridged with IRC channel: {}'.format(
-        command.payload)
-    replies.add(text=text)
 
 
 def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
@@ -226,10 +183,8 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
         args = command.payload.split(maxsplit=1)
         channel = args[0]
         text = args[1] if len(args) == 2 else ''
-        for g in get_cchats(channel):
-            if sender in g.get_contacts():
-                break
-        else:
+        g = dbot.get_chat(db.get_chat(channel))
+        if not g or sender not in g.get_contacts():
             replies.add(text='You are not a member of that channel')
             return
 
@@ -242,20 +197,19 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
             return
         text = t
 
-    for g in get_cchats(channel):
-        for c in g.get_contacts():
-            if c.addr == text:
-                g.remove_contact(c)
-                if c == sender:
-                    return
-                s_nick = db.get_nick(sender.addr)
-                nick = db.get_nick(c.addr)
-                text = '** {} removed by {}'.format(nick, s_nick)
-                for g in get_cchats(channel):
-                    g.send_text(text)
-                text = 'Removed from {} by {}'.format(channel, s_nick)
-                replies.add(text=text, chat=dbot.get_chat(c))
+    g = dbot.get_chat(db.get_chat(channel))
+    for c in g.get_contacts():
+        if c.addr == text:
+            g.remove_contact(c)
+            if c == sender:
                 return
+            s_nick = db.get_nick(sender.addr)
+            nick = db.get_nick(c.addr)
+            text = '** {} removed by {}'.format(nick, s_nick)
+            dbot.get_chat(db.get_chat(channel)).send_text(text)
+            text = 'Removed from {} by {}'.format(channel, s_nick)
+            replies.add(text=text, chat=dbot.get_chat(c))
+            return
 
 
 # ======== Utilities ===============
@@ -275,11 +229,6 @@ def getdefault(key: str, value: str = None) -> str:
         dbot.set(key, value, scope=__name__)
         val = value
     return val
-
-
-def get_cchats(channel: str) -> Generator:
-    for gid in db.get_cchats(channel):
-        yield dbot.get_chat(gid)
 
 
 def get_db(bot) -> DBManager:

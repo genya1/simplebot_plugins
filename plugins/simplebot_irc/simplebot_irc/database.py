@@ -1,7 +1,6 @@
+
 import sqlite3
-# typing
 from typing import Optional, Generator
-# ======
 
 
 class DBManager:
@@ -11,11 +10,7 @@ class DBManager:
         with self.db:
             self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS channels
-                (id TEXT PRIMARY KEY)''')
-            self.db.execute(
-                '''CREATE TABLE IF NOT EXISTS cchats
-                (id INTEGER PRIMARY KEY,
-                channel TEXT NOT NULL)''')
+                (name TEXT PRIMARY KEY, chat INTEGER)''')
             self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS nicks
                 (addr TEXT PRIMARY KEY,
@@ -36,39 +31,27 @@ class DBManager:
 
     # ==== channels =====
 
-    def channel_exists(self, name: str) -> bool:
+    def get_chat(self, name: str) -> bool:
         name = name.lower()
         r = self.execute(
-            'SELECT * FROM channels WHERE id=?', (name,)).fetchone()
-        return r is not None
+            'SELECT chat FROM channels WHERE name=?', (name,)).fetchone()
+        return r and r[0]
 
     def get_channel_by_gid(self, gid: int) -> Optional[str]:
         r = self.db.execute(
-            'SELECT channel from cchats WHERE id=?', (gid,)).fetchone()
+            'SELECT name from channels WHERE chat=?', (gid,)).fetchone()
         return r and r[0]
 
     def get_channels(self) -> Generator:
-        for r in self.db.execute('SELECT id FROM channels'):
-            yield r[0]
+        for r in self.db.execute('SELECT * FROM channels'):
+            yield r
 
-    def add_channel(self, name: str) -> None:
-        self.commit('INSERT INTO channels VALUES (?)', (name.lower(),))
+    def add_channel(self, name: str, chat: int) -> None:
+        self.commit(
+            'INSERT INTO channels VALUES (?,?)', (name.lower(), chat))
 
     def remove_channel(self, name: str) -> None:
-        self.commit('DELETE FROM channels WHERE id=?', (name.lower(),))
-
-    # ===== cchats =======
-
-    def get_cchats(self, channel: str) -> Generator:
-        for r in self.db.execute('SELECT id FROM cchats WHERE channel=?',
-                                 (channel.lower(),)):
-            yield r[0]
-
-    def add_cchat(self, gid: int, channel: str) -> None:
-        self.commit('INSERT INTO cchats VALUES (?,?)', (gid, channel))
-
-    def remove_cchat(self, gid: int) -> None:
-        self.commit('DELETE FROM cchats WHERE id=?', (gid,))
+        self.commit('DELETE FROM channels WHERE name=?', (name.lower(),))
 
     # ===== nicks =======
 
