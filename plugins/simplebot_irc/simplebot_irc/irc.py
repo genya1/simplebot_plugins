@@ -25,13 +25,20 @@ class IRCBot(irc.bot.SingleServerIRCBot):
         for channel in channels:
             c.join(channel)
 
+    def on_action(self, c, e) -> None:
+        e.arguments.insert(0, '/me')
+        self._irc2dc(e)
+
     def on_pubmsg(self, c, e) -> None:
+        self._irc2dc(e)
+
+    def _irc2dc(self, e) -> None:
         sender = '{}[irc]'.format(e.source.split('!')[0])
         for gid in self.db.get_cchats(e.target):
             msg = Message.new_empty(self.dbot.account, "text")
             lib.dc_msg_set_override_sender_name(
                 msg._dc_msg, as_dc_charpointer(sender))
-            msg.set_text(e.arguments[0])
+            msg.set_text(' '.join(e.arguments))
             self.dbot.get_chat(gid).send_msg(msg)
 
     def on_notopic(self, c, e) -> None:
