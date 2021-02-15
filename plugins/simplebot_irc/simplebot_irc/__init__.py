@@ -16,7 +16,7 @@ from deltachat import Chat, Contact, Message
 
 
 version = '1.0.0'
-nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
+nick_re = re.compile(r'[-_a-zA-Z0-9]{1,30}$')
 dbot: DeltaBot
 db: DBManager
 irc_bridge: IRCBot
@@ -136,6 +136,7 @@ def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
             replies.add(text='** Nick already taken')
         else:
             db.set_nick(addr, new_nick)
+            irc_bridge.preactor.puppets[addr].nick(new_nick + '[dc]')
             replies.add(text='** Nick: {}'.format(new_nick))
     else:
         replies.add(text='** Nick: {}'.format(db.get_nick(addr)))
