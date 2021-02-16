@@ -4,7 +4,7 @@ import time
 
 from .db import DBManager, Status
 from deltabot.hookspec import deltabot_hookimpl
-# typing:
+
 from deltabot import DeltaBot
 from deltabot.bot import Replies
 from deltabot.commands import IncomingCommand
@@ -68,13 +68,10 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
     if len(question) > 255:
         replies.add(text='Question can have up to 255 characters')
         return
-    if len(lines) > len(BARS):
-        replies.add(text='Up to {} options are allowed'.format(len(BARS)))
-        return
     for opt in lines:
-        if len(opt) > 100:
+        if len(opt) > 150:
             replies.add(
-                text='Up to 100 characters per option are allowed')
+                text='Up to 150 characters per option are allowed')
             return
 
     if command.message.chat.is_group():
@@ -357,7 +354,7 @@ def format_gpoll(poll, voted: bool = False, closed: bool = False) -> str:
         for opt in options:
             p = len([v for v in votes if v['option'] == opt['id']])/vcount
             text += '{}% {}\n|{}\n\n'.format(
-                round(p*100), opt['text'], BARS[opt['id']] * round(10*p))
+                round(p*100), opt['text'], BARS[opt['id'] % len(BARS)] * round(10*p))
     else:
         for opt in options:
             text += '/vote_{}_{} {}\n\n'.format(
