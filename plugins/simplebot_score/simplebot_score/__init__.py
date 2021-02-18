@@ -117,6 +117,8 @@ def getdefault(key: str, value: str = None) -> str:
 
 
 def _parse(score: str) -> int:
+    if not score.startswith(('-', '+')):
+        return 0
     try:
         return int(score)
     except ValueError:
