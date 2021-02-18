@@ -118,7 +118,7 @@ def cmd_members(command: IncomingCommand, replies: Replies) -> None:
         return
 
     members = 'Members:\n'
-    for m in irc_bridge.get_members(chan):
+    for m in sorted(irc_bridge.get_members(chan)):
         members += '• {}\n'.format(m)
 
     replies.add(text=members)
