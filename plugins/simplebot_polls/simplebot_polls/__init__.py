@@ -381,7 +381,7 @@ def format_poll(poll, voted: bool = False, closed: bool = False,
         for opt in options:
             p = len([v for v in votes if v['option'] == opt['id']])/vcount
             text += '{}% {}\n|{}\n\n'.format(
-                round(p*100), opt['text'], BARS[opt['id']] * round(10*p))
+                round(p*100), opt['text'], BARS[opt['id'] % len(BARS)] * round(10*p))
     else:
         for opt in options:
             text += '/vote_{}_{} {}\n\n'.format(
