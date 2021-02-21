@@ -26,7 +26,7 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    bot.commands.register(name="/wf_login", func=cmd_login, admin=getdefault('allow_login', '1')=='1')
+    bot.commands.register(name="/wf_login", func=cmd_login, admin=getdefault('allow_login', '1') != '1')
     bot.commands.register(name="/wf_logout", func=cmd_logout)
     bot.commands.register(name="/wf_bridge", func=cmd_bridge, admin=True)
     bot.commands.register(name="/wf_unbridge", func=cmd_unbridge, admin=True)
