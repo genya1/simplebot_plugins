@@ -56,6 +56,9 @@ class PuppetReactor(irc.client.SimpleIRCClient):
     def send_message(self, addr: str, target: str, text: str) -> None:
         self.puppets[addr].privmsg(target, text)
 
+    def send_action(self, addr: str, target: str, text: str) -> None:
+        self.puppets[addr].action(target, text)
+
     # EVENTS:
 
     def on_nicknameinuse(self, c, e) -> None:

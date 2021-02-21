@@ -40,6 +40,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot.commands.register('/topic', cmd_topic)
     dbot.commands.register('/names', cmd_members)
     dbot.commands.register('/nick', cmd_nick)
+    dbot.commands.register('/me', cmd_me)
 
 
 @deltabot_hookimpl
@@ -83,19 +84,36 @@ def filter_messages(message: Message, replies: Replies):
     if not chan:
         return
 
+    if message.quoted_text:
+        text = '<{}> '.format(' '.join(message.quoted_text.split('\n')))
+    else:
+        text = ''
     if message.filename:
-        replies.add(text='WARNING: Attachments are not supported')
-    if not message.text:
+        text += '[File] '
+    text += message.text
+    if not text:
         return
 
     addr = message.get_sender_contact().addr
-    for line in message.text.split('\n'):
-        irc_bridge.preactor.send_message(addr, chan, line)
+    irc_bridge.preactor.send_message(
+        addr, chan, ' '.join(text.split('\n')))
 
     return True
 
 
 # ======== Commands ===============
+
+def cmd_me(command: IncomingCommand, replies: Replies) -> None:
+    """Send a message to IRC using the /me IRC command.
+    """
+    chan = db.get_channel_by_gid(command.message.chat.id)
+    if not chan:
+        return
+
+    addr = command.message.get_sender_contact().addr
+    text = ' '.join(command.payload.split('\n'))
+    irc_bridge.preactor.send_action(addr, chan, text)
+
 
 def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
     """Show IRC channel topic.
