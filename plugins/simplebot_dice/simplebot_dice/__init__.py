@@ -38,7 +38,7 @@ def cmd_dice5(command: IncomingCommand, replies: Replies) -> None:
 def _roll_dice(count: int, quote: Message, replies: Replies) -> None:
     dices = []
     total = 0
-    for i in range(count):
+    for _ in range(count):
         rand = random.randrange(0, 6)
         total += rand + 1
         dices.append(DICES[rand])
