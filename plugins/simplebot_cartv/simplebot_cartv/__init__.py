@@ -1,3 +1,4 @@
+# pylama:ignore=W0613
 
 import requests
 from simplebot import DeltaBot
@@ -5,18 +6,30 @@ from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
 from simplebot.hookspec import deltabot_hookimpl
 
-version = '1.0.0'
-url = 'http://eprog2.tvcdigital.cu/programacion/{}'
+__version__ = '1.0.0'
 tv_emoji, cal_emoji, aster_emoji = '📺', '📆', '✳'
 channels = {
-    'Cubavisión': '5c096ea5bad1b202541503cf',
-    'Tele Rebelde': '596c6d34769cf31454a473aa',
-    'Educativo': '596c6d4f769cf31454a473ab',
-    'Educativo 2': '596c8107670d001588a8bfc1',
-    'Multivisión': '597eed8948124617b0d8b23a',
-    'Clave': '5a6a056c6c40dd21604965fd',
-    'Caribe': '5c5357124929db17b7429949',
-    'Habana': '5c42407f4fa5d131ce00f864',
+    name: 'http://eprog2.tvcdigital.cu/programacion/' + code
+    for name, code in zip(
+            ('Cubavisión',
+             'Tele Rebelde',
+             'Educativo',
+             'Educativo 2',
+             'Multivisión',
+             'Clave',
+             'Caribe',
+             'Habana',
+             ),
+            ('5c096ea5bad1b202541503cf',
+             '596c6d34769cf31454a473aa',
+             '596c6d4f769cf31454a473ab',
+             '596c8107670d001588a8bfc1',
+             '597eed8948124617b0d8b23a',
+             '5a6a056c6c40dd21604965fd',
+             '5c5357124929db17b7429949',
+             '5c42407f4fa5d131ce00f864',
+             ),
+    )
 }
 
 
@@ -93,24 +106,24 @@ def cmd_ha(command: IncomingCommand, replies: Replies) -> None:
 # ======== Utilities ===============
 
 def get_channel(chan) -> str:
-    with requests.get(url.format(channels[chan])) as req:
+    with requests.get(channels[chan]) as req:
         req.raise_for_status()
-        prog = req.json()
+        programs = req.json()
 
     text = '{} {}\n'.format(tv_emoji, chan)
     date = None
-    for p in prog:
-        if date != p['fecha_inicial']:
-            date = p['fecha_inicial']
+    for prog in programs:
+        if date != prog['fecha_inicial']:
+            date = prog['fecha_inicial']
             text += '{} {}\n'.format(cal_emoji, date)
-        time = p['hora_inicio'][:-3]
-        title = ' '.join(p['titulo'].split())
-        desc = ' '.join(p['descripcion'].split())
-        trans = p['transmision'].strip()
+        time = prog['hora_inicio'][:-3]
+        title = ' '.join(prog['titulo'].split())
+        desc = ' '.join(prog['descripcion'].split())
+        trans = prog['transmision'].strip()
         text += '{} {} {}\n'.format(
             aster_emoji, time, '/'.join(e for e in (title, desc, trans) if e))
 
-    if not prog:
+    if not programs:
         text += 'Cartelera no disponible.'
 
     return text
