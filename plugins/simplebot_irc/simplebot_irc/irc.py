@@ -64,7 +64,8 @@ class PuppetReactor(irc.client.SimpleIRCClient):
         self.db.set_nick(c.addr, nick)
         c.nick(nick + '[dc]')
 
-    def on_welcome(self, c, e) -> None:
+    @staticmethod
+    def on_welcome(c, e) -> None:
         for channel in c.channels:
             c.join(channel)
 
@@ -77,7 +78,8 @@ class IRCBot(irc.bot.SingleServerIRCBot):
         self.db = db
         self.preactor = PuppetReactor(server, port, db, dbot)
 
-    def on_nicknameinuse(self, c, e) -> None:
+    @staticmethod
+    def on_nicknameinuse(c, e) -> None:
         c.nick(c.get_nickname() + '_')
 
     def on_welcome(self, c, e) -> None:
@@ -116,7 +118,7 @@ class IRCBot(irc.bot.SingleServerIRCBot):
         chan = self.channels[e.arguments[0]]
         chan.topic = e.arguments[1]
 
-    def join_channel(self, name: str, addr: str = None) -> None:
+    def join_channel(self, name: str) -> None:
         self.connection.join(name)
 
     def leave_channel(self, channel: str) -> None:

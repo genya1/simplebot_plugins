@@ -3,7 +3,6 @@ import os
 import re
 from threading import Thread
 from time import sleep
-from typing import Generator
 
 from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
@@ -76,7 +75,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process messages sent to an IRC channel.
     """
     chan = db.get_channel_by_gid(message.chat.id)
@@ -96,8 +95,6 @@ def filter_messages(message: Message, replies: Replies):
     addr = message.get_sender_contact().addr
     irc_bridge.preactor.send_message(
         addr, chan, ' '.join(text.split('\n')))
-
-    return True
 
 
 # ======== Commands ===============
@@ -127,8 +124,6 @@ def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
 def cmd_members(command: IncomingCommand, replies: Replies) -> None:
     """Show list of IRC channel members.
     """
-    me = command.bot.self_contact
-
     chan = db.get_channel_by_gid(command.message.chat.id)
     if not chan:
         replies.add(text='This is not an IRC channel')
@@ -148,7 +143,9 @@ def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
     if command.payload:
         new_nick = '_'.join(command.args)
         if not nick_re.match(new_nick):
-            replies.add(text='** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters')
+            replies.add(
+                text='** Invalid nick, only letters and numbers are'
+                ' allowed, and nick should be less than 30 characters')
         elif db.get_addr(new_nick):
             replies.add(text='** Nick already taken')
         else:
@@ -166,10 +163,10 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     if not command.payload:
         replies.add(text="Wrong syntax")
         return
-    if not dbot.is_admin(sender.addr) and not db.is_whitelisted(command.payload):
+    if not dbot.is_admin(sender.addr) and \
+       not db.is_whitelisted(command.payload):
         replies.add(text="That channel isn't in the whitelist")
         return
-
 
     g = dbot.get_chat(db.get_chat(command.payload))
     if g and sender in g.get_contacts():
