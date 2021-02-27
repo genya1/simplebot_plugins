@@ -56,26 +56,26 @@ class DBManager:
 
     # =============== Players ================
 
-    def add_player(self, addr: str, round: int, gid: int) -> None:
+    def add_player(self, addr: str, turn: int, gid: int) -> None:
         self.commit('INSERT INTO players VALUES (?,?,?)',
-                    (addr, gid, round))
+                    (addr, gid, turn))
 
     def delete_player(self, addr: str) -> None:
         self.commit('DELETE FROM players WHERE addr=?', (addr,))
 
-    def set_player(self, addr: str, round: int, gid: int) -> None:
+    def set_player(self, addr: str, turn: int, gid: int) -> None:
         self.commit('UPDATE players SET round=? WHERE addr=? AND game=?',
-                    (round, addr, gid))
+                    (turn, addr, gid))
 
     def get_player_by_addr(self, addr: str) -> Optional[sqlite3.Row]:
         return self.execute(
             'SELECT * FROM players WHERE addr=?', (addr,)).fetchone()
 
-    def get_player_by_round(self, gid: int,
-                            round: int) -> Optional[sqlite3.Row]:
+    def get_player_by_round(
+            self, gid: int, turn: int) -> Optional[sqlite3.Row]:
         return self.execute(
             'SELECT * FROM players WHERE game=? AND round=?',
-            (gid, round)).fetchone()
+            (gid, turn)).fetchone()
 
     def get_players(self, gid: int) -> List[sqlite3.Row]:
         return self.execute(

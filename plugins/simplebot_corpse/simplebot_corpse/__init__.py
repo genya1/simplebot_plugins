@@ -35,6 +35,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot.commands.register('/corpse_status', cmd_status)
 
 
+# pylama:ignore=W0613
 @deltabot_hookimpl
 def deltabot_member_removed(chat: Chat, contact: Contact,
                             replies: Replies) -> None:
@@ -52,7 +53,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact,
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process turns in Exquisite Corpse game groups
     """
     if not message.chat.is_group():
@@ -84,7 +85,6 @@ def filter_messages(message: Message, replies: Replies):
             else:
                 db.set_turn(g['gid'], p['addr'])
                 run_turn(p, dbot.get_chat(g['gid']), paragraph)
-        return True
 
 
 # ======== Commands ===============
@@ -199,7 +199,6 @@ def cmd_leave(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='❌ You are not playing Exquisite Corpse.')
 
 
-
 def cmd_status(command: IncomingCommand, replies: Replies) -> None:
     """Show the game status.
 
@@ -235,7 +234,8 @@ def run_turn(player: sqlite3.Row, group: Chat, paragraph: str) -> None:
         text = ec + '📝 Complete the phrase:\n...{}\n\n'.format(
             ' '.join(paragraph.rsplit(maxsplit=5)[-5:]))
     else:
-        text = ec + '📝 You are the first!\nSend a message with at least 10 words.'
+        text = '📝 You are the first!\nSend a message with at least 10 words.'
+        text = ec + text
 
     dbot.get_chat(contact).send_text(text)
 
@@ -261,11 +261,11 @@ def show_status(gid: int, turn: str = None) -> str:
 
 
 def get_by_round(gid: int) -> Optional[sqlite3.Row]:
-    round = 1
-    p = db.get_player_by_round(gid, round)
-    while p is None and round < 3:
-        round += 1
-        p = db.get_player_by_round(gid, round)
+    turn = 1
+    p = db.get_player_by_round(gid, turn)
+    while p is None and turn < 3:
+        turn += 1
+        p = db.get_player_by_round(gid, turn)
     return p
 
 
