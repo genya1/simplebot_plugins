@@ -2,8 +2,6 @@
 import io
 import os
 import queue
-import random
-import string
 import time
 from threading import Thread
 from typing import Generator
@@ -59,7 +57,8 @@ def deltabot_start(bot: DeltaBot) -> None:
 
 
 @deltabot_hookimpl
-def deltabot_member_added(chat: Chat, contact: Contact, actor: Contact) -> None:
+def deltabot_member_added(chat: Chat, contact: Contact,
+                          actor: Contact) -> None:
     if contact == dbot.self_contact and not db.get_channel(chat.id):
         add_group(chat.id, as_admin=dbot.is_admin(actor.addr))
 
@@ -112,7 +111,9 @@ def filter_messages(message: Message, replies: Replies) -> None:
     if ch and ch['admin'] == message.chat.id:
         max_size = int(getdefault('max_file_size'))
         if message.filename and os.path.getsize(message.filename) > max_size:
-            replies.add(text='❌ File too big, up to {} Bytes are allowed'.format(max_size))
+            replies.add(
+                text='❌ File too big, up to {} Bytes are allowed'.format(
+                    max_size))
             return
 
         db.set_channel_last_pub(ch['id'], time.time())
@@ -378,13 +379,12 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
     """Remove the member with the given address from the group with the given id. If no address is provided, removes yourself from group/channel.
     """
     sender = command.message.get_sender_contact()
-    me = command.bot.self_contact
 
     if not command.payload:
         replies.add(text='❌ Invalid ID')
         return
 
-    type_, gid = command.args[0][0], int(command.args[0][1:]) 
+    type_, gid = command.args[0][0], int(command.args[0][1:])
     if type_ == 'c':
         ch = db.get_channel_by_id(gid)
         if not ch:
@@ -394,9 +394,7 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
             if sender in g.get_contacts():
                 g.remove_contact(sender)
                 return
-        else:
-            replies.add(
-                text='❌ You are not a member of that channel')
+        replies.add(text='❌ You are not a member of that channel')
     elif type_ == 'g':
         gr = db.get_group(gid)
         if not gr:
