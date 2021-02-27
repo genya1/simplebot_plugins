@@ -27,7 +27,7 @@ class Visibility(str, Enum):
     PUBLIC = 'public'  # post will be public
 
 
-version = '1.0.0'
+__version__ = '1.0.0'
 MASTODON_LOGO = os.path.join(
     os.path.dirname(__file__), 'mastodon-logo.png')
 v2emoji = {Visibility.DIRECT: '✉', Visibility.PRIVATE: '🔒',

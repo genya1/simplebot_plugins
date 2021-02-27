@@ -18,7 +18,7 @@ from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager
 
-version = '1.0.0'
+__version__ = '1.0.0'
 dbot: DeltaBot
 db: DBManager
 channel_posts: queue.Queue = queue.Queue()

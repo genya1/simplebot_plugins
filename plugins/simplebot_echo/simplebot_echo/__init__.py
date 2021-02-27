@@ -4,7 +4,7 @@ from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
 from simplebot.hookspec import deltabot_hookimpl
 
-version = '1.0.0'
+__version__ = '1.0.0'
 
 
 @deltabot_hookimpl

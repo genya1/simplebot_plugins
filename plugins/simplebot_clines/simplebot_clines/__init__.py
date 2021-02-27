@@ -11,7 +11,7 @@ from simplebot.hookspec import deltabot_hookimpl
 from .db import DBManager
 from .game import CELL, Board
 
-version = '1.0.0'
+__version__ = '1.0.0'
 nick_re = re.compile(r'[-a-zA-Z0-9_]{1,16}$')
 db: DBManager
 dbot: DeltaBot

@@ -10,7 +10,7 @@ from simplebot.hookspec import deltabot_hookimpl
 from .connect4 import BLACK, WHITE, Board
 from .db import DBManager
 
-version = '1.0.0'
+__version__ = '1.0.0'
 db: DBManager
 dbot: DeltaBot
 

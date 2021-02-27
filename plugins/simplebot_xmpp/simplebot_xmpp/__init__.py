@@ -14,7 +14,7 @@ from simplebot.hookspec import deltabot_hookimpl
 from .database import DBManager
 from .xmpp import XMPPBot
 
-version = '1.0.0'
+__version__ = '1.0.0'
 nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
 dbot: DeltaBot = None
 db: DBManager

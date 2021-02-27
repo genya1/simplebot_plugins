@@ -16,7 +16,7 @@ from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager
 
-version = '1.0.0'
+__version__ = '1.0.0'
 feedparser.USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0)'
 feedparser.USER_AGENT += ' Gecko/20100101 Firefox/60.0'
 html2text.config.WRAP_LINKS = False

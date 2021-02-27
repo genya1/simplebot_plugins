@@ -10,7 +10,7 @@ from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager, Status
 
-version = '1.0.0'
+__version__ = '1.0.0'
 BARS = ['🟩', '🟥', '🟦', '🟪', '🟧', '🟨', '🟫', '⬛']
 db: DBManager
 dbot: DeltaBot

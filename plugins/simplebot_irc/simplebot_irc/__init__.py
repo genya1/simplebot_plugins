@@ -14,7 +14,7 @@ from simplebot.hookspec import deltabot_hookimpl
 from .database import DBManager
 from .irc import IRCBot
 
-version = '1.0.0'
+__version__ = '1.0.0'
 nick_re = re.compile(r'[-_a-zA-Z0-9]{1,30}$')
 dbot: DeltaBot
 db: DBManager
