@@ -2,14 +2,13 @@
 import os
 import time
 
-from .db import DBManager, Status
-from simplebot.hookspec import deltabot_hookimpl
-
+from deltachat import Chat, Contact
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
-from deltachat import Chat, Contact
+from simplebot.hookspec import deltabot_hookimpl
 
+from .db import DBManager, Status
 
 version = '1.0.0'
 BARS = ['🟩', '🟥', '🟦', '🟪', '🟧', '🟨', '🟫', '⬛']

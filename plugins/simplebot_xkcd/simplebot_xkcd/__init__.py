@@ -1,14 +1,12 @@
 
-from urllib.request import urlopen
 import io
+from urllib.request import urlopen
 
-from simplebot.hookspec import deltabot_hookimpl
 import xkcd
-
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
-
+from simplebot.hookspec import deltabot_hookimpl
 
 version = '1.0.0'
 

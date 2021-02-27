@@ -1,15 +1,13 @@
 
-from urllib.parse import quote_plus
 import io
+from urllib.parse import quote_plus
 
-from simplebot.hookspec import deltabot_hookimpl
 import bs4
 import requests
-
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
-
+from simplebot.hookspec import deltabot_hookimpl
 
 version = '1.0.0'
 HEADERS = {

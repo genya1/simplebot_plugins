@@ -1,25 +1,22 @@
 
-from threading import Thread
-from typing import Generator
-import time
 import io
 import os
 import queue
 import random
 import string
+import time
+from threading import Thread
+from typing import Generator
 
-from .db import DBManager
-
-from simplebot.hookspec import deltabot_hookimpl
+import qrcode
+from deltachat import Chat, Contact, Message
+from jinja2 import Template
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
+from simplebot.hookspec import deltabot_hookimpl
 
-from deltachat import Chat, Contact, Message
-
-import qrcode
-from jinja2 import Template
-
+from .db import DBManager
 
 version = '1.0.0'
 dbot: DeltaBot

@@ -1,7 +1,7 @@
 
-from typing import List, Optional
-from enum import IntEnum
 import sqlite3
+from enum import IntEnum
+from typing import List, Optional
 
 
 class Status(IntEnum):

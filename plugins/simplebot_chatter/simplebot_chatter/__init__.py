@@ -5,12 +5,11 @@ import random
 from chatterbot import ChatBot
 from chatterbot.conversation import Statement
 from chatterbot.trainers import ChatterBotCorpusTrainer, ListTrainer
+from deltachat import Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
 from simplebot.hookspec import deltabot_hookimpl
-from deltachat import Message
-
 
 version = '1.0.0'
 dbot: DeltaBot

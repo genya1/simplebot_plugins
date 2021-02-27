@@ -3,14 +3,12 @@ from threading import Thread
 
 import irc.bot
 import irc.client
-
-from .database import DBManager
-from simplebot import DeltaBot
-
 from deltachat import Message
 from deltachat.capi import lib
 from deltachat.cutil import as_dc_charpointer
+from simplebot import DeltaBot
 
+from .database import DBManager
 
 
 class PuppetReactor(irc.client.SimpleIRCClient):

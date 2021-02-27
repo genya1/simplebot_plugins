@@ -1,7 +1,6 @@
 
 import random
 
-
 BLACK = 'x'
 WHITE = 'o'
 EMPTY = ' '

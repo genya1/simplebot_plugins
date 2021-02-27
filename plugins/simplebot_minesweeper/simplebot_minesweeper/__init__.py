@@ -3,15 +3,14 @@ import os
 import re
 import time
 
-from .db import DBManager
-from .game import Board
-from simplebot.hookspec import deltabot_hookimpl
-
+from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
-from deltachat import Chat, Contact, Message
+from simplebot.hookspec import deltabot_hookimpl
 
+from .db import DBManager
+from .game import Board
 
 version = '1.0.0'
 nick_re = re.compile(r'[-a-zA-Z0-9_]{1,16}$')

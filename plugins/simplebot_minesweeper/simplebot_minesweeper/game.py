@@ -1,10 +1,9 @@
 
-from typing import Generator
 import random
 import time
+from typing import Generator
 
 import minesweeper
-
 
 MINE = 'M'
 BOOM = 'B'

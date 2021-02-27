@@ -1,15 +1,14 @@
 
 import os
 
-from .db import DBManager
-from .game import Board, BLACK, WHITE
-from simplebot.hookspec import deltabot_hookimpl
-
+from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
-from deltachat import Chat, Contact, Message
+from simplebot.hookspec import deltabot_hookimpl
 
+from .db import DBManager
+from .game import BLACK, WHITE, Board
 
 version = '1.0.0'
 db: DBManager

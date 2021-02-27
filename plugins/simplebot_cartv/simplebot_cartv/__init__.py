@@ -1,11 +1,9 @@
 
-from deltabot.hookspec import deltabot_hookimpl
 import requests
-
-from deltabot import DeltaBot
-from deltabot.bot import Replies
-from deltabot.commands import IncomingCommand
-
+from simplebot import DeltaBot
+from simplebot.bot import Replies
+from simplebot.commands import IncomingCommand
+from simplebot.hookspec import deltabot_hookimpl
 
 version = '1.0.0'
 url = 'http://eprog2.tvcdigital.cu/programacion/{}'

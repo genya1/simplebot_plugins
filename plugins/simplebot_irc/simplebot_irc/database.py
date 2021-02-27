@@ -1,6 +1,6 @@
 
 import sqlite3
-from typing import Optional, Generator
+from typing import Generator, Optional
 
 
 class DBManager:

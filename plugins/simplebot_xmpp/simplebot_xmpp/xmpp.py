@@ -1,12 +1,14 @@
 
 import logging
+from typing import Generator
 
+from simplebot import DeltaBot
 from slixmpp import ClientXMPP
+
+from .database import DBManager
+
 # from slixmpp.exceptions import IqError, IqTimeout
 
-from typing import Generator
-from .database import DBManager
-from simplebot import DeltaBot
 
 
 logging.basicConfig(level=logging.DEBUG,

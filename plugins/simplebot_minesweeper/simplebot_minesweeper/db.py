@@ -1,6 +1,6 @@
 
-from typing import Optional, List
 import sqlite3
+from typing import List, Optional
 
 
 class DBManager:

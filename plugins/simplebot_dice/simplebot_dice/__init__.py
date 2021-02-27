@@ -1,11 +1,10 @@
 import random
 
+from deltachat import Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
 from simplebot.hookspec import deltabot_hookimpl
-
-from deltachat import Message
 
 version = '1.0.0'
 DICES = ('⚀', '⚁', '⚂', '⚃', '⚄', '⚅')

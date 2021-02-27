@@ -1,7 +1,6 @@
 
-from typing import Optional
 import random
-
+from typing import Optional
 
 BLACK = 'x'
 WHITE = 'o'

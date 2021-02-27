@@ -1,19 +1,18 @@
 
+import os
+import re
 from threading import Thread
 from time import sleep
 from typing import Generator
-import re
-import os
 
-from .irc import IRCBot
-from .database import DBManager
-from simplebot.hookspec import deltabot_hookimpl
-
+from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
-from deltachat import Chat, Contact, Message
+from simplebot.hookspec import deltabot_hookimpl
 
+from .database import DBManager
+from .irc import IRCBot
 
 version = '1.0.0'
 nick_re = re.compile(r'[-_a-zA-Z0-9]{1,30}$')

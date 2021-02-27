@@ -1,26 +1,24 @@
 
-from urllib.parse import quote_plus, unquote_plus, quote
 import io
-import re
+import mimetypes
 import os
+import re
 import shutil
 import tempfile
 import threading
-import mimetypes
 import zipfile
 import zlib
+from urllib.parse import quote, quote_plus, unquote_plus
 
-from simplebot.hookspec import deltabot_hookimpl
-from deltachat import Message
-from readability import Document
-from html2text import html2text
 import bs4
 import requests
-
+from deltachat import Message
+from html2text import html2text
+from readability import Document
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
-
+from simplebot.hookspec import deltabot_hookimpl
 
 version = '1.0.0'
 zlib.Z_DEFAULT_COMPRESSION = 9

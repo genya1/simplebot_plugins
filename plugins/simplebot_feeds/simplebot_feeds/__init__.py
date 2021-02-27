@@ -6,13 +6,13 @@ from typing import Optional
 
 import feedparser
 import html2text
+from deltachat import Chat, Contact, Message
+from deltachat.capi import lib
+from deltachat.cutil import as_dc_charpointer
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
 from simplebot.hookspec import deltabot_hookimpl
-from deltachat import Chat, Contact, Message
-from deltachat.capi import lib
-from deltachat.cutil import as_dc_charpointer
 
 from .db import DBManager
 

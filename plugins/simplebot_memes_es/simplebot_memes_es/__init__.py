@@ -1,16 +1,14 @@
 
 import io
-import re
 import mimetypes
+import re
 
-from simplebot.hookspec import deltabot_hookimpl
 import bs4
 import requests
-
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
-
+from simplebot.hookspec import deltabot_hookimpl
 
 version = '1.0.0'
 ua = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0) Gecko/20100101'

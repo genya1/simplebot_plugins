@@ -1,7 +1,6 @@
 
 from checkers.game import Game
 
-
 BLACK = 1
 BLACK2 = BLACK + 2
 WHITE = 2
