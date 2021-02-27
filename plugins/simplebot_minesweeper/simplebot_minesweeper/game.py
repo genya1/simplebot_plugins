@@ -80,7 +80,8 @@ class Board:
             text += ROWS[i] + '\n'
         return text
 
-    def on_board(self, i: int, j: int) -> bool:
+    @staticmethod
+    def on_board(i: int, j: int) -> bool:
         if 0 <= i <= 8 and 0 <= j <= 8:
             return True
         return False
