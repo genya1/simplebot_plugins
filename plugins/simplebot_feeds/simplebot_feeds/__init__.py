@@ -9,6 +9,7 @@ import html2text
 from deltachat import Chat, Contact, Message
 from deltachat.capi import lib
 from deltachat.cutil import as_dc_charpointer
+from feedparser.exceptions import CharacterEncodingOverride
 from simplebot import DeltaBot
 from simplebot.bot import Replies
 from simplebot.commands import IncomingCommand
@@ -69,15 +70,16 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
         d = feedparser.parse(feed['url'])
     else:
         max_fc = int(getdefault('max_feed_count'))
-        if max_fc >= 0 and len(db.get_feeds()) >= max_fc:
+        if 0 <= max_fc <= len(db.get_feeds()):
             replies.add(text='Sorry, maximum number of feeds reached')
             return
         d = feedparser.parse(url)
         bozo_exception = d.get('bozo_exception', '')
         if (d.get('bozo') == 1 and not isinstance(
-                bozo_exception, feedparser.exceptions.CharacterEncodingOverride)) or not d.entries:
+                bozo_exception, CharacterEncodingOverride)) or not d.entries:
             replies.add(text='Invalid feed url: {}'.format(url))
-            command.bot.logger.warning('Invalid feed %s: %s', url, bozo_exception)
+            command.bot.logger.warning(
+                'Invalid feed %s: %s', url, bozo_exception)
             return
         feed = dict(
             url=url,
@@ -166,7 +168,7 @@ def _check_feed(f) -> None:
 
     bozo_exception = d.get('bozo_exception', '')
     if d.get('bozo') == 1 and not isinstance(
-            bozo_exception, feedparser.exceptions.CharacterEncodingOverride):
+            bozo_exception, CharacterEncodingOverride):
         dbot.logger.exception(bozo_exception)
         return
 
