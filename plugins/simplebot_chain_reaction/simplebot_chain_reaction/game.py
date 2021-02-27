@@ -33,9 +33,9 @@ class Board:
                            for x in range(self.nrows)]
 
     def export(self) -> str:
-        b = '\n'.join(''.join(
+        board = '\n'.join(''.join(
             map(lambda a: str(a.value), row)) for row in self._board)
-        return '\n'.join((str(self.fist_round), str(self.turn.value), b))
+        return '\n'.join((str(self.fist_round), str(self.turn.value), board))
 
     def __str__(self) -> str:
         text = '{}-{} {}-{} {}-{}\n'.format(
@@ -49,12 +49,13 @@ class Board:
 
         text += '|'.join(COLS[:self.ncols]) + '\n'
         for i, row in enumerate(self._board):
-            for d in row:
-                text += ORBS[d] + '|'
+            for atom in row:
+                text += ORBS[atom] + '|'
             text += ROWS[i] + '\n'
         return text
 
-    def get_orb(self, atom: Atom) -> str:
+    @staticmethod
+    def get_orb(atom: Atom) -> str:
         return ORBS[atom]
 
     def is_on_board(self, i: int, j: int) -> bool:
@@ -79,7 +80,7 @@ class Board:
             self.fist_round -= 1
 
     def expand(self, i: int, j: int) -> None:
-        w = 3 if self.turn == Atom.WHITE else 0
+        weight = 3 if self.turn == Atom.WHITE else 0
         chain = [(i, j)]
         while chain:
             i, j = chain.pop(0)
@@ -94,7 +95,7 @@ class Board:
             mass = mass + 1 if mass < 4 else mass - 2
 
             if mass < max_mass:
-                self._board[i][j] = Atom(mass + w)
+                self._board[i][j] = Atom(mass + weight)
                 if 0 in self.result().values():
                     break
             else:
@@ -109,13 +110,13 @@ class Board:
                     chain.append((i, j+1))
 
     def result(self) -> dict:
-        b, w = 0, 0
+        black, white = 0, 0
         for row in self._board:
-            for d in row:
-                if d == Atom.EMPTY:
+            for atom in row:
+                if atom == Atom.EMPTY:
                     continue
-                if d < Atom.WHITE:
-                    b += d
+                if atom < Atom.WHITE:
+                    black += atom
                 else:
-                    w += d - 3
-        return {Atom.BLACK: b, Atom.WHITE: w}
+                    white += atom - 3
+        return {Atom.BLACK: black, Atom.WHITE: white}
