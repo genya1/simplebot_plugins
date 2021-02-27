@@ -47,10 +47,11 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Color Lines game groups.
     """
-    if len(message.text) != 4 or not message.text.isalnum() or message.text.isalpha() or message.text.isdigit():
+    if len(message.text) != 4 or not message.text.isalnum() or \
+       message.text.isalpha() or message.text.isdigit():
         return
 
     game = db.get_game_by_gid(message.chat.id)
@@ -67,7 +68,6 @@ def filter_messages(message: Message, replies: Replies):
         replies.add(text=run_turn(message.chat.id))
     except ValueError:
         replies.add(text='❌ Invalid move!')
-    return True
 
 
 # ======== Commands ===============
@@ -127,7 +127,9 @@ def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
     if command.payload:
         new_nick = ' '.join(command.args)
         if not nick_re.match(new_nick):
-            replies.add(text='** Invalid nick, only letters, numbers, "-" and "_" are allowed, and nick should be less than 16 characters')
+            replies.add(
+                text='** Invalid nick, only letters, numbers, "-" and'
+                ' "_" are allowed, and nick should be less than 16 characters')
         elif db.get_addr(new_nick):
             replies.add(text='** Nick already taken, try again')
         else:
@@ -208,11 +210,11 @@ def run_turn(gid: int) -> str:
         text = text.format(score, b)
         text += '\n▶️ Play again?  /lines_play'
         return text
-    else:
-        text = '📊 Score: {} / {}\n\n{}'.format(b.score, g['score'], b)
-        text += '\nNext:  {}  /lines_next'.format(
-            ' '.join(CELL[e.color] for e in b.game.next_balls))
-        return text
+
+    text = '📊 Score: {} / {}\n\n{}'.format(b.score, g['score'], b)
+    text += '\nNext:  {}  /lines_next'.format(
+        ' '.join(CELL[e.color] for e in b.game.next_balls))
+    return text
 
 
 def get_db(bot: DeltaBot) -> DBManager:

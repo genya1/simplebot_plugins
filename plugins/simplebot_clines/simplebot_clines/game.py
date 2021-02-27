@@ -3,7 +3,8 @@ from random import randint, randrange, sample
 from typing import Optional
 
 CELL = ['⬜', '🔴', '🟢', '🟡', '🔵', '🟣', '🟠', '🟤']
-COLS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
+COLS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣',
+        '8️⃣', '9️⃣']
 ROWS = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭', '🇮']
 
 
@@ -47,7 +48,8 @@ class Board:
         self.score += self.game.score
         self.game.score = 0
 
-    def get_position(self, coord) -> tuple:
+    @staticmethod
+    def get_position(coord) -> tuple:
         sorted_coord = sorted(coord.lower())
         x = '123456789'.find(sorted_coord[0])
         y = 'abcdefghi'.find(sorted_coord[1])
@@ -170,7 +172,7 @@ class Field:
     def make_next_balls(self) -> None:
         """Set the following balls"""
         self.next_balls.clear()
-        for index in range(self.number_of_next_ball):
+        for _ in range(self.number_of_next_ball):
             ball = Ball()
             ball.set_random_color(self.number_of_color)
             self.next_balls.append(ball)
@@ -228,27 +230,29 @@ class Field:
     def try_move(self, start_x: int, start_y: int, end_x: int,
                  end_y: int) -> bool:
         """Try move ball in needed coordinate"""
-        if self.get_ball(end_x, end_y) is not None or self.get_ball(start_x, start_y) is None:
+        if self.get_ball(end_x, end_y) is not None or \
+           self.get_ball(start_x, start_y) is None:
             return False
         queue = []
         visited_cells = []
         queue.append((start_x, start_y))
         while len(queue) != 0:
-            coordinates = queue.pop(0)
-            if coordinates[0] < 0 or coordinates[0] >= self.height \
-                    or coordinates[1] < 0 or coordinates[1] >= self.width:
+            coords = queue.pop(0)
+            if coords[0] < 0 or coords[0] >= self.height \
+               or coords[1] < 0 or coords[1] >= self.width:
                 continue
-            if (coordinates != (start_x, start_y) and self.get_ball(coordinates[0], coordinates[1]) is not None) \
-                    or (coordinates[0], coordinates[1]) in visited_cells:
+            has_ball = self.get_ball(coords[0], coords[1]) is not None
+            if (coords != (start_x, start_y) and has_ball) or \
+               (coords[0], coords[1]) in visited_cells:
                 continue
-            if coordinates[0] == end_x and coordinates[1] == end_y:
+            if coords[0] == end_x and coords[1] == end_y:
                 return True
-            visited_cells.append((coordinates[0], coordinates[1]))
+            visited_cells.append((coords[0], coords[1]))
             for dy in range(-1, 2):
                 for dx in range(-1, 2):
                     if 0 in (dx, dy):
                         queue.append(
-                            (coordinates[0] + dx, coordinates[1] + dy))
+                            (coords[0] + dx, coords[1] + dy))
         return False
 
     def make_step(self, start_x: int, start_y: int, end_x: int,
@@ -267,10 +271,12 @@ class Field:
         ball_for_delete = []
         minus_dx = x
         plus_dx = x + 1
-        while minus_dx >= 0 and self.get_color_of_ball(minus_dx, y) == current_color:
+        while (minus_dx >= 0 and
+               self.get_color_of_ball(minus_dx, y) == current_color):
             ball_for_delete.append((minus_dx, y))
             minus_dx -= 1
-        while plus_dx < self.width and self.get_color_of_ball(plus_dx, y) == current_color:
+        while (plus_dx < self.width and
+               self.get_color_of_ball(plus_dx, y) == current_color):
             ball_for_delete.append((plus_dx, y))
             plus_dx += 1
         if len(ball_for_delete) >= self.balls_in_line:
@@ -278,10 +284,12 @@ class Field:
         ball_for_delete.clear()
         minus_dy = y
         plus_dy = y + 1
-        while minus_dy >= 0 and self.get_color_of_ball(x, minus_dy) == current_color:
+        while (minus_dy >= 0 and
+               self.get_color_of_ball(x, minus_dy) == current_color):
             ball_for_delete.append((x, minus_dy))
             minus_dy -= 1
-        while plus_dy < self.height and self.get_color_of_ball(x, plus_dy) == current_color:
+        while (plus_dy < self.height and
+               self.get_color_of_ball(x, plus_dy) == current_color):
             ball_for_delete.append((x, plus_dy))
             plus_dy += 1
         if len(ball_for_delete) >= self.balls_in_line:
@@ -291,11 +299,13 @@ class Field:
         minus_dy = y
         plus_dx = x + 1
         plus_dy = y + 1
-        while minus_dx >= 0 and minus_dy >= 0 and self.get_color_of_ball(minus_dx, minus_dy) == current_color:
+        while (minus_dx >= 0 and minus_dy >= 0 and
+               self.get_color_of_ball(minus_dx, minus_dy) == current_color):
             ball_for_delete.append((minus_dx, minus_dy))
             minus_dx -= 1
             minus_dy -= 1
-        while plus_dx < self.width and plus_dy < self.height and self.get_color_of_ball(plus_dx, plus_dy) == current_color:
+        while (plus_dx < self.width and plus_dy < self.height and
+               self.get_color_of_ball(plus_dx, plus_dy) == current_color):
             ball_for_delete.append((plus_dx, plus_dy))
             plus_dx += 1
             plus_dy += 1
@@ -304,13 +314,15 @@ class Field:
         ball_for_delete.clear()
         minus_dx = x
         plus_dy = y
-        while minus_dx >= 0 and plus_dy < self.height and self.get_color_of_ball(minus_dx, plus_dy) == current_color:
+        while (minus_dx >= 0 and plus_dy < self.height and
+               self.get_color_of_ball(minus_dx, plus_dy) == current_color):
             ball_for_delete.append((minus_dx, plus_dy))
             minus_dx -= 1
             plus_dy += 1
         plus_dx = x + 1
         minus_dy = y - 1
-        while plus_dx < self.width and minus_dy >= 0 and self.get_color_of_ball(plus_dx, minus_dy) == current_color:
+        while (plus_dx < self.width and minus_dy >= 0 and
+               self.get_color_of_ball(plus_dx, minus_dy) == current_color):
             ball_for_delete.append((plus_dx, minus_dy))
             plus_dx += 1
             minus_dy -= 1
