@@ -56,7 +56,7 @@ def cmd_memecenter(command: IncomingCommand, replies: Replies) -> None:
 def get_meme(get_image) -> dict:
     img = b''
     max_meme_size = int(getdefault('max_meme_size'))
-    for i in range(10):
+    for _ in range(10):
         img_desc, img_url = get_image()
         with requests.get(img_url, headers=HEADERS) as r:
             r.raise_for_status()
@@ -84,9 +84,9 @@ def get_ext(r) -> str:
     else:
         ctype = r.headers.get(
             'content-type', '').split(';')[0].strip().lower()
-        if 'text/plain' == ctype:
+        if ctype == 'text/plain':
             ext = '.txt'
-        elif 'image/jpeg' == ctype:
+        elif ctype == 'image/jpeg':
             ext = '.jpg'
         else:
             ext = mimetypes.guess_extension(ctype)
