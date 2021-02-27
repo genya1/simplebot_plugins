@@ -46,7 +46,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Chess game groups
     """
     if not message.text.isalnum() and '-' not in message.text:
@@ -64,7 +64,6 @@ def filter_messages(message: Message, replies: Replies):
             replies.add(text=run_turn(message.chat.id))
         except (ValueError, AssertionError):
             replies.add(text='❌ Invalid move!')
-        return True
 
 
 # ======== Commands ===============
@@ -120,7 +119,8 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='There is no game running')
     else:
         db.set_game(game['p1'], game['p2'], None)
-        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /chess_new'.format(loser))
+        text = '🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /chess_new'
+        replies.add(text=text.format(loser))
 
 
 def cmd_new(command: IncomingCommand, replies: Replies) -> None:
