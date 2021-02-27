@@ -45,7 +45,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Connect4 game groups
     """
     if message.text not in '1234567':
@@ -63,7 +63,6 @@ def filter_messages(message: Message, replies: Replies):
             replies.add(text=run_turn(message.chat.id))
         else:
             replies.add(text='❌ Invalid move!')
-        return True
 
 
 # ======== Commands ===============
@@ -116,7 +115,8 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='There is no game running')
     else:
         db.set_board(game['p1'], game['p2'], None)
-        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /c4_new'.format(loser))
+        text = '🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /c4_new'
+        replies.add(text=text.format(loser))
 
 
 def cmd_new(command: IncomingCommand, replies: Replies) -> None:
