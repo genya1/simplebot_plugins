@@ -29,8 +29,8 @@ class Board:
         if board:
             lines = board.split('\n')
             self.theme = int(lines.pop(0))
-            for mv in lines.pop(0).split():
-                self.game.move(list(map(int, mv.split(','))))
+            for mov in lines.pop(0).split():
+                self.game.move(list(map(int, mov.split(','))))
         else:
             self.theme = 0
 
@@ -45,20 +45,21 @@ class Board:
     def __str__(self):
         board = [[BCELL if (i+j+1) % 2 == 0 else WCELL for j in range(8)]
                  for i in range(8)]
-        for p in self.game.board.pieces:
-            if not p.position:
+        for piece in self.game.board.pieces:
+            if not piece.position:
                 continue
-            disc = p.player + 2 if p.king else p.player
-            i, j = self.position2coord(p.position)
+            disc = piece.player + 2 if piece.king else piece.player
+            i, j = self.position2coord(piece.position)
             board[i][j] = disc
         text = '|'.join(COLS) + '\n'
         for i, row in enumerate(board):
-            for d in row:
-                text += self.get_disc(d) + '|'
+            for disc in row:
+                text += self.get_disc(disc) + '|'
             text += ROWS[i] + '\n'
         return text
 
-    def position2coord(self, position: int) -> tuple:
+    @staticmethod
+    def position2coord(position: int) -> tuple:
         pos = 1
         for i in range(8):
             for j in range(8):
@@ -71,7 +72,8 @@ class Board:
     def get_disc(self, disc) -> str:
         return DISCS[self.theme][disc]
 
-    def get_position(self, coord: str) -> int:
+    @staticmethod
+    def get_position(coord: str) -> int:
         sorted_coord = sorted(coord.lower())
         i = 'abcdefgh'.find(sorted_coord[1])
         j = '12345678'.find(sorted_coord[0])

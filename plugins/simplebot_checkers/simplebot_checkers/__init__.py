@@ -10,61 +10,60 @@ from simplebot.hookspec import deltabot_hookimpl
 from .db import DBManager
 from .game import BLACK, WHITE, Board
 
-version = '1.0.0'
-db: DBManager
-dbot: DeltaBot
+__version__ = '1.0.0'
+DBASE: DBManager
+DBOT: DeltaBot
 
 
 # ======== Hooks ===============
 
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global db, dbot
-    dbot = bot
-    db = get_db(bot)
+    global DBASE, DBOT
+    DBOT = bot
+    DBASE = get_db(bot)
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    dbot.commands.register('/checkers_play', cmd_play)
-    dbot.commands.register('/checkers_surrender', cmd_surrender)
-    dbot.commands.register('/checkers_new', cmd_new)
-    dbot.commands.register('/checkers_repeat', cmd_repeat)
+    DBOT.commands.register('/checkers_play', cmd_play)
+    DBOT.commands.register('/checkers_surrender', cmd_surrender)
+    DBOT.commands.register('/checkers_new', cmd_new)
+    DBOT.commands.register('/checkers_repeat', cmd_repeat)
 
 
 @deltabot_hookimpl
 def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
-    game = db.get_game_by_gid(chat.id)
+    game = DBASE.get_game_by_gid(chat.id)
     if game:
-        me = dbot.self_contact
-        p1, p2 = game['p1'], game['p2']
-        if contact.addr in (me.addr, p1, p2):
-            db.delete_game(p1, p2)
-            if contact != me:
-                chat.remove_contact(me)
+        player1, player2 = game['p1'], game['p2']
+        if contact.addr in (DBOT.self_contact.addr, player1, player2):
+            DBASE.delete_game(player1, player2)
+            if contact != DBOT.self_contact:
+                chat.remove_contact(DBOT.self_contact)
 
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Checkers game groups
     """
-    if len(message.text) not in (2, 4) or not message.text.isalnum() or message.text.isalpha() or message.text.isdigit():
+    if len(message.text) not in (2, 4) or not message.text.isalnum() or \
+       message.text.isalpha() or message.text.isdigit():
         return
-    game = db.get_game_by_gid(message.chat.id)
+    game = DBASE.get_game_by_gid(message.chat.id)
     if game is None or game['board'] is None:
         return
 
-    b = Board(game['board'])
+    board = Board(game['board'])
     player = message.get_sender_contact().addr
     player = BLACK if game['black'] == player else WHITE
-    if b.turn == player:
+    if board.turn == player:
         try:
-            b.move(message.text)
-            db.set_board(game['p1'], game['p2'], b.export())
+            board.move(message.text)
+            DBASE.set_board(game['p1'], game['p2'], board.export())
             replies.add(text=run_turn(message.chat.id))
         except ValueError:
             replies.add(text='❌ Invalid move!')
-        return True
 
 
 # ======== Commands ===============
@@ -82,32 +81,33 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text="Sorry, I don't want to play")
         return
 
-    p1 = command.message.get_sender_contact().addr
-    p2 = command.payload
-    if p1 == p2:
+    player1 = command.message.get_sender_contact().addr
+    player2 = command.payload
+    if player1 == player2:
         replies.add(text="You can't play with yourself")
         return
 
-    g = db.get_game_by_players(p1, p2)
+    game = DBASE.get_game_by_players(player1, player2)
 
-    if g is None:  # first time playing with p2
-        b = Board()
-        chat = command.bot.create_group(
-            '🔴 {} 🆚 {} [checkers]'.format(p1, p2), [p1, p2])
-        db.add_game(p1, p2, chat.id, b.export(), p1)
+    if game is None:  # first time playing with player2
+        board = Board()
+        chat = command.bot.create_group('🔴 {} 🆚 {} [checkers]'.format(
+            player1, player2), [player1, player2])
+        DBASE.add_game(player1, player2, chat.id, board.export(), player1)
         text = 'Hello {1},\nYou have been invited by {0} to play Checkers'
         text += '\n\n{2}: {0}\n{3}: {1}\n\n'
-        text = text.format(p1, p2, b.get_disc(BLACK), b.get_disc(WHITE))
+        text = text.format(player1, player2, board.get_disc(BLACK),
+                           board.get_disc(WHITE))
         replies.add(text=text + run_turn(chat.id), chat=chat)
     else:
-        text = 'You already have a game group with {}'.format(p2)
-        replies.add(text=text, chat=command.bot.get_chat(g['gid']))
+        text = 'You already have a game group with {}'.format(player2)
+        replies.add(text=text, chat=command.bot.get_chat(game['gid']))
 
 
 def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
     """End the Checkers game in the group it is sent.
     """
-    game = db.get_game_by_gid(command.message.chat.id)
+    game = DBASE.get_game_by_gid(command.message.chat.id)
     loser = command.message.get_sender_contact().addr
     # this is not your game group
     if game is None or loser not in (game['p1'], game['p2']):
@@ -115,23 +115,24 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
     elif game['board'] is None:
         replies.add(text='There is no game running')
     else:
-        db.set_board(game['p1'], game['p2'], None)
-        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /checkers_new'.format(loser))
+        DBASE.set_board(game['p1'], game['p2'], None)
+        text = '🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /checkers_new'
+        replies.add(text=text.format(loser))
 
 
 def cmd_new(command: IncomingCommand, replies: Replies) -> None:
     """Start a new Checkers game in the current game group.
     """
     sender = command.message.get_sender_contact().addr
-    game = db.get_game_by_gid(command.message.chat.id)
+    game = DBASE.get_game_by_gid(command.message.chat.id)
     if game is None or sender not in (game['p1'], game['p2']):
         replies.add(text='This is not your game group')
     elif game['board'] is None:
-        b = Board()
-        db.set_game(game['p1'], game['p2'], b.export(), sender)
-        p2 = game['p2'] if sender == game['p1'] else game['p1']
+        board = Board()
+        DBASE.set_game(game['p1'], game['p2'], board.export(), sender)
+        player2 = game['p2'] if sender == game['p1'] else game['p1']
         text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
-            b.get_disc(BLACK), sender, b.get_disc(WHITE), p2)
+            board.get_disc(BLACK), sender, board.get_disc(WHITE), player2)
         replies.add(text=text + run_turn(command.message.chat.id))
     else:
         replies.add(text='There is a game running already')
@@ -146,32 +147,35 @@ def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
 # ======== Utilities ===============
 
 def run_turn(gid: int) -> str:
-    g = db.get_game_by_gid(gid)
-    if not g:
+    game = DBASE.get_game_by_gid(gid)
+    if not game:
         return 'This is not your game group'
-    b = Board(g['board'])
-    if not g['board']:
+    board = Board(game['board'])
+    if not game['board']:
         return 'There is no game running'
-    result = b.result()
+    result = board.result()
     if result == -1:
-        if b.turn == BLACK:
-            turn = '{} {}'.format(b.get_disc(BLACK), g['black'])
+        if board.turn == BLACK:
+            turn = '{} {}'.format(board.get_disc(BLACK), game['black'])
         else:
-            p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
-            turn = '{} {}'.format(b.get_disc(WHITE), p2)
-        text = "{} it's your turn...\n\n{}".format(turn, b)
+            player2 = game['p2'] if game['black'] == game['p1'] else game['p1']
+            turn = '{} {}'.format(board.get_disc(WHITE), player2)
+        text = "{} it's your turn...\n\n{}".format(turn, board)
     else:
-        db.set_board(g['p1'], g['p2'], None)
+        DBASE.set_board(game['p1'], game['p2'], None)
         if result == 0:
             text = '🤝 Game over.\nIt is a draw!'
         else:
             if result == BLACK:
-                winner = '{} {}'.format(b.get_disc(BLACK), g['black'])
+                winner = '{} {}'.format(board.get_disc(BLACK), game['black'])
             else:
-                p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
-                winner = '{} {}'.format(b.get_disc(WHITE), p2)
+                if game['black'] == game['p1']:
+                    player2 = game['p2']
+                else:
+                    player2 = game['p1']
+                winner = '{} {}'.format(board.get_disc(WHITE), player2)
             text = '🏆 Game over.\n{} Wins!!!'.format(winner)
-        text += '\n\n{}\n\n▶️ Play again? /checkers_new'.format(b)
+        text += '\n\n{}\n\n▶️ Play again? /checkers_new'.format(board)
     return text
 
 
