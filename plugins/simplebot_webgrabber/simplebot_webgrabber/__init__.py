@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 from urllib.parse import quote_plus, unquote_plus, quote
 import io
 import re
@@ -10,16 +10,16 @@ import mimetypes
 import zipfile
 import zlib
 
-from deltabot.hookspec import deltabot_hookimpl
+from simplebot.hookspec import deltabot_hookimpl
 from deltachat import Message
 from readability import Document
 from html2text import html2text
 import bs4
 import requests
-# typing:
-from deltabot import DeltaBot
-from deltabot.bot import Replies
-from deltabot.commands import IncomingCommand
+
+from simplebot import DeltaBot
+from simplebot.bot import Replies
+from simplebot.commands import IncomingCommand
 
 
 version = '1.0.0'

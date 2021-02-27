@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
+
 from deltabot.hookspec import deltabot_hookimpl
 import requests
-# typing:
+
 from deltabot import DeltaBot
 from deltabot.bot import Replies
 from deltabot.commands import IncomingCommand

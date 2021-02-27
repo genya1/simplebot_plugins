@@ -2,10 +2,10 @@ import os
 
 from .db import DBManager
 
-from deltabot import DeltaBot
-from deltabot.bot import Replies
-from deltabot.commands import IncomingCommand
-from deltabot.hookspec import deltabot_hookimpl
+from simplebot import DeltaBot
+from simplebot.bot import Replies
+from simplebot.commands import IncomingCommand
+from simplebot.hookspec import deltabot_hookimpl
 
 from deltachat import Chat, Contact, Message
 

@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
+
 import sqlite3
-# typing
 from typing import Generator, Optional
-# ======
 
 
 class DBManager:

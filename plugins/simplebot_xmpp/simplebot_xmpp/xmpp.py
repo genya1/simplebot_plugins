@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
+
 import logging
 
 from slixmpp import ClientXMPP
 # from slixmpp.exceptions import IqError, IqTimeout
-# typing
+
 from typing import Generator
 from .database import DBManager
-from deltabot import DeltaBot
-# ======
+from simplebot import DeltaBot
 
 
 logging.basicConfig(level=logging.DEBUG,

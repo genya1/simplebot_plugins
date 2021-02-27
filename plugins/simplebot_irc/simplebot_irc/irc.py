@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
+
 from threading import Thread
 
 import irc.bot
 import irc.client
 
 from .database import DBManager
-from deltabot import DeltaBot
+from simplebot import DeltaBot
 
 from deltachat import Message
 from deltachat.capi import lib
