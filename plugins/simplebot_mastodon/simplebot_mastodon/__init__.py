@@ -308,7 +308,7 @@ def cmd_reply(command: IncomingCommand, replies: Replies) -> None:
     """Reply to a toot with the given id.
     """
     acc_id, toot_id, text = command.payload.split(maxsplit=2)
-    if not text:
+    if not text and not command.message.filename:
         replies.add(text='Wrong Syntax')
         return
 
@@ -319,7 +319,8 @@ def cmd_reply(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='Invalid toot or account id')
         return
 
-    toot(get_session(acc), text=text, in_reply_to=toot_id)
+    toot(get_session(acc), text=text, filename=command.message.filename,
+         in_reply_to=toot_id)
 
 
 def cmd_star(command: IncomingCommand, replies: Replies) -> None:
