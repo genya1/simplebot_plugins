@@ -85,13 +85,15 @@ def cmd_set(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text=text, quote=command.message)
 
 
-
 def cmd_score(command: IncomingCommand, replies: Replies) -> None:
     """Get score from given address or your current score if no address is given.
 
     Example: `/score`
     """
-    addr = command.payload if command.payload else command.message.get_sender_contact().addr
+    if command.payload:
+        addr = command.payload
+    else:
+        addr = command.message.get_sender_contact().addr
     name = dbot.get_contact(addr).name
     badge = getdefault('score_badge')
     replies.add(text='{0}: {1}/{2}{3}'.format(
