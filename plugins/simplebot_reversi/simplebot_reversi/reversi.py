@@ -12,6 +12,8 @@ DISKS = [
     {BLACK: '🟠', WHITE: '🟣', EMPTY: '⬜', HINT: '🔲'},
     {BLACK: '🟡', WHITE: '🟢', EMPTY: '⬜', HINT: '🔲'},
 ]
+DIRECTIONS = (
+    (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1))
 
 
 class Board:
@@ -23,7 +25,7 @@ class Board:
                 self.theme = int(lines.pop(0))
             else:
                 self.theme = 0
-            self._board = [[e for e in ln] for ln in lines]
+            self._board = [list(ln) for ln in lines]
         else:
             self.turn = BLACK
             self.theme = random.randint(0, len(DISKS) - 1)
@@ -38,7 +40,7 @@ class Board:
         return '\n'.join((self.turn, str(self.theme), b))
 
     def __str__(self) -> str:
-        board = [[e for e in row] for row in self._board]
+        board = [row.copy() for row in self._board]
         for x, y in self.get_valid_moves(self.turn):
             board[x][y] = HINT
         text = '|'.join(COLS) + '\n'
@@ -73,7 +75,7 @@ class Board:
             for y in range(8):
                 if self.is_valid_move(disk, x, y):
                     return {'status': 1}
-                elif self._board[x][y] == BLACK:
+                if self._board[x][y] == BLACK:
                     b += 1
                 elif self._board[x][y] == WHITE:
                     w += 1
@@ -95,7 +97,8 @@ class Board:
         else:
             raise ValueError('Invalid move ({}, {})'.format(x, y))
 
-    def is_on_board(self, x: int, y: int) -> bool:
+    @staticmethod
+    def is_on_board(x: int, y: int) -> bool:
         return 0 <= x <= 7 and 0 <= y <= 7
 
     def get_valid_moves(self, disk: str) -> list:
@@ -110,12 +113,15 @@ class Board:
         if not self.is_on_board(x, y) or self._board[x][y] != EMPTY:
             return False
         other_tile = WHITE if disk == BLACK else BLACK
-        for xdir, ydir in ((0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)):
+        for xdir, ydir in DIRECTIONS:
             newx, newy = x + xdir, y + ydir
-            while self.is_on_board(newx, newy) and self._board[newx][newy] == other_tile:
+            while (self.is_on_board(newx, newy) and
+                   self._board[newx][newy] == other_tile):
                 newx += xdir
                 newy += ydir
-            if self.is_on_board(newx, newy) and self._board[newx][newy] == disk and (newx-xdir, newy-ydir) != (x, y):
+            if self.is_on_board(newx, newy) and \
+               self._board[newx][newy] == disk and \
+               (newx-xdir, newy-ydir) != (x, y):
                 return True
         return False
 
@@ -125,12 +131,14 @@ class Board:
 
         other_tile = WHITE if disk == BLACK else BLACK
         flipped = []
-        for xdir, ydir in ((0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)):
+        for xdir, ydir in DIRECTIONS:
             newx, newy = x + xdir, y + ydir
-            while self.is_on_board(newx, newy) and self._board[newx][newy] == other_tile:
+            while (self.is_on_board(newx, newy) and
+                   self._board[newx][newy] == other_tile):
                 newx += xdir
                 newy += ydir
-            if not self.is_on_board(newx, newy) or self._board[newx][newy] != disk:
+            if not self.is_on_board(newx, newy) or \
+               self._board[newx][newy] != disk:
                 continue
             while True:
                 newx -= xdir
