@@ -64,7 +64,8 @@ class Board:
         return text
 
     def is_valid(self, i: int, j: int, value: int) -> bool:
-        if i*9+j in self.base or not 0 <= i <= 8 or not 0 <= j <= 8 or not 0 <= value <= 9:
+        if i*9+j in self.base or not 0 <= i <= 8 or \
+           not 0 <= j <= 8 or not 0 <= value <= 9:
             return False
         board = self.game.board.copy()
         board[i][j] = value

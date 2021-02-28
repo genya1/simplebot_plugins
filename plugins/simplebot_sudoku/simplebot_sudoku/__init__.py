@@ -43,7 +43,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Sudoku game groups.
     """
     if not message.text.isalnum() or len(message.text) != 3:
@@ -60,7 +60,6 @@ def filter_messages(message: Message, replies: Replies):
         replies.add(text=run_turn(message.chat.id))
     except ValueError:
         replies.add(text='❌ Invalid move!')
-    return True
 
 
 # ======== Commands ===============
@@ -120,8 +119,7 @@ def run_turn(gid: int) -> str:
         db.set_board(g['addr'], None)
         text = '🏆 Game over. You Win!!!\n\n{}'.format(b)
         return text + '\n\n▶️ Play again? /sudoku_play'
-    else:
-        return str(b)
+    return str(b)
 
 
 def get_db(bot: DeltaBot) -> DBManager:
