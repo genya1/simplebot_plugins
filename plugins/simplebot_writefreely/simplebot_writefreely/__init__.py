@@ -24,7 +24,8 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    bot.commands.register(name="/wf_login", func=cmd_login, admin=getdefault('allow_login', '1') != '1')
+    bot.commands.register(name="/wf_login", func=cmd_login,
+                          admin=getdefault('allow_login', '1') != '1')
     bot.commands.register(name="/wf_logout", func=cmd_logout)
     bot.commands.register(name="/wf_bridge", func=cmd_bridge, admin=True)
     bot.commands.register(name="/wf_unbridge", func=cmd_unbridge, admin=True)
@@ -80,9 +81,11 @@ def cmd_login(command: IncomingCommand, replies: Replies) -> None:
         g = command.bot.create_group(
             '{} [WF]'.format(blog['title'] or blog['alias']), [sender])
         db.add_chat(g.id, blog['alias'], sender.addr)
-        replies.add(text='All messages sent here will be published to blog:\nAlias: {}\nDescription: {}'.format(
-            blog['alias'], blog['description']), chat=g)
+        replies.add(text='All messages sent here will be published to'
+                    ' blog:\nAlias: {}\nDescription: {}'.format(
+                        blog['alias'], blog['description']), chat=g)
     replies.add(text='✔️Logged in')
+
 
 def cmd_logout(command: IncomingCommand, replies: Replies) -> None:
     """Logout from your WriteFreely instance.
@@ -94,6 +97,7 @@ def cmd_logout(command: IncomingCommand, replies: Replies) -> None:
     db.del_account(addr)
     wf.client(host=acc['host'], token=acc['token']).logout()
     replies.add(text='✔️Logged out')
+
 
 def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
     """Bridge chat with a WriteFreely blog.
@@ -110,10 +114,12 @@ def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
     blogs = [blog['alias'] for blog in client.get_collections()]
     if command.payload not in blogs:
         replies.add(
-            text='❌ Invalid blog name, your blogs:\n{}'.format('\n'.join(blogs)))
+            text='❌ Invalid blog name, your blogs:\n{}'.format(
+                '\n'.join(blogs)))
         return
     db.add_chat(command.message.chat.id, command.payload, addr)
-    replies.add(text='✔️All messages sent here will be published in {}/{}'.format(acc['host'], command.payload))
+    text = '✔️All messages sent here will be published in {}/{}'
+    replies.add(text=text.format(acc['host'], command.payload))
 
 
 def cmd_unbridge(command: IncomingCommand, replies: Replies) -> None:

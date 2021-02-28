@@ -45,4 +45,3 @@ class DBManager:
     def get_chat(self, chat_id: int) -> Optional[sqlite3.Row]:
         return self.db.execute(
             'SELECT * FROM chats WHERE id=?', (chat_id,)).fetchone()
-        
