@@ -62,7 +62,8 @@ def deltabot_init(bot: DeltaBot) -> None:
 def filter_messages(message: Message, replies: Replies) -> None:
     """Process messages containing URLs.
     """
-    match = re.search('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.text)
+    match = re.search(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|'
+                      r'(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.text)
     if not match:
         return
     kwargs = dict(quote=message)
@@ -77,8 +78,12 @@ def filter_messages(message: Message, replies: Replies) -> None:
         content_type = r.headers.get('content-type', '').lower()
         if 'text/html' in content_type:
             soup = bs4.BeautifulSoup(r.text, 'html5lib')
-            [t.extract() for t in soup('script')]
-            kwargs['text'] = (soup.title and soup.title.get_text().strip()) or 'Page without title'
+            for t in soup('script'):
+                t.extract()
+            if soup.title:
+                kwargs['text'] = soup.title.get_text().strip()
+            else:
+                kwargs['text'] = 'Page without title'
             url = r.url
             index = url.find('/', 8)
             if index == -1:
@@ -104,7 +109,8 @@ def filter_messages(message: Message, replies: Replies) -> None:
                         e[attr] = '{}/{}'.format(url, e[attr])
             kwargs['html'] = str(soup)
         elif 'image/' in content_type:
-            kwargs['filename'] = 'image.' + re.search('image/(\w+)', content_type).group(1)
+            kwargs['filename'] = 'image.' + re.search(
+                r'image/(\w+)', content_type).group(1)
             kwargs['bytefile'] = io.BytesIO(r.content)
         else:
             size = r.headers.get('content-size')
@@ -119,7 +125,8 @@ def filter_messages(message: Message, replies: Replies) -> None:
                 else:
                     size = '{:,}'.format(size)
             ctype = r.headers.get('content-type', '').split(';')[0] or '-'
-            kwargs['text'] = 'Content Type: {}\nContent Size: {}'.format(ctype, size)
+            kwargs['text'] = 'Content Type: {}\nContent Size: {}'.format(
+                ctype, size)
 
     replies.add(**kwargs)
 
@@ -337,11 +344,12 @@ def _google_imgs(query: str) -> list:
 
 
 def _startpage_imgs(query: str) -> list:
-    url = 'https://startpage.com/do/search?cat=pics&cmd=process_search&query={}'.format(quote_plus(query))
+    url = 'https://startpage.com/do/search'
+    url += '?cat=pics&cmd=process_search&query=' + quote_plus(query)
     with requests.get(url, headers=HEADERS) as r:
         r.raise_for_status()
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
-        r.url
+        url = r.url
     soup = soup.find('div', class_='mainline-results')
     if not soup:
         return []
@@ -380,11 +388,12 @@ def _dogpile_imgs(query: str) -> list:
 def process_html(r) -> str:
     html, url = r.text, r.url
     soup = bs4.BeautifulSoup(html, 'html5lib')
-    [t.extract() for t in soup(
-        ['script', 'iframe', 'noscript', 'link', 'meta'])]
+    for t in soup(['script', 'iframe', 'noscript', 'link', 'meta']):
+        t.extract()
     soup.head.append(soup.new_tag('meta', charset='utf-8'))
-    [comment.extract() for comment in soup.find_all(
-        text=lambda text: isinstance(text, bs4.Comment))]
+    for comment in soup.find_all(
+            text=lambda text: isinstance(text, bs4.Comment)):
+        comment.extract()
     for b in soup(['button', 'input']):
         if b.has_attr('type') and b['type'] == 'hidden':
             b.extract()
@@ -484,9 +493,9 @@ def get_ext(r) -> str:
     else:
         ctype = r.headers.get(
             'content-type', '').split(';')[0].strip().lower()
-        if 'text/plain' == ctype:
+        if ctype == 'text/plain':
             ext = '.txt'
-        elif 'image/jpeg' == ctype:
+        elif ctype == 'image/jpeg':
             ext = '.jpg'
         else:
             ext = mimetypes.guess_extension(ctype)
