@@ -73,7 +73,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process messages sent to XMPP channels.
     """
     chan = db.get_channel_by_gid(message.chat.id)
@@ -92,7 +92,6 @@ def filter_messages(message: Message, replies: Replies):
     for g in get_cchats(chan):
         if g.id != message.chat.id:
             replies.add(text=text, chat=g)
-    return True
 
 
 # ======== Commands ===============
@@ -127,7 +126,9 @@ def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
     new_nick = ' '.join(command.payload.split())
     if new_nick:
         if not nick_re.match(new_nick):
-            replies.add(text='** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters')
+            replies.add(
+                text='** Invalid nick, only letters and numbers are'
+                ' allowed, and nick should be less than 30 characters')
         elif db.get_addr(new_nick):
             replies.add(text='** Nick already taken')
         else:
@@ -186,7 +187,9 @@ def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
         return
     channel = db.get_channel_by_gid(command.message.chat.id)
     if channel:
-        replies.add(text="This chat is already bridged with channel: {}".format(channel))
+        replies.add(
+            text="This chat is already bridged with channel: {}".format(
+                channel))
         return
 
     if not db.channel_exists(command.payload):
@@ -231,12 +234,12 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
             if c.addr == text:
                 g.remove_contact(c)
                 if c == sender:
-                    return None
+                    return
                 s_nick = db.get_nick(sender.addr)
                 nick = db.get_nick(c.addr)
                 text = '** {} removed by {}'.format(nick, s_nick)
-                for g in get_cchats(channel):
-                    replies.add(text=text, chat=g)
+                for cchat in get_cchats(channel):
+                    replies.add(text=text, chat=cchat)
                 text = 'Removed from {} by {}'.format(channel, s_nick)
                 dbot.get_chat(c).send_text(text)
                 return

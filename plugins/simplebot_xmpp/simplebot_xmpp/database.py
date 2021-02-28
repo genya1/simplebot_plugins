@@ -93,15 +93,14 @@ class DBManager:
             'SELECT nick from nicks WHERE addr=?', (addr,)).fetchone()
         if r:
             return r[0]
-        else:
-            i = 1
-            while True:
-                nick = 'User{}'.format(i)
-                if not self.get_addr(nick):
-                    self.set_nick(addr, nick)
-                    break
-                i += 1
-            return nick
+        i = 1
+        while True:
+            nick = 'User{}'.format(i)
+            if not self.get_addr(nick):
+                self.set_nick(addr, nick)
+                break
+            i += 1
+        return nick
 
     def set_nick(self, addr: str, nick: str) -> None:
         self.commit('REPLACE INTO nicks VALUES (?,?)', (addr, nick))

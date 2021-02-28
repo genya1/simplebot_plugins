@@ -10,7 +10,6 @@ from .database import DBManager
 # from slixmpp.exceptions import IqError, IqTimeout
 
 
-
 logging.basicConfig(level=logging.DEBUG,
                     format='%(levelname)-8s %(message)s')
 
