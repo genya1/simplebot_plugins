@@ -24,16 +24,23 @@ class DBManager:
                 (id INTEGER PRIMARY KEY,
                 contact TEXT NOT NULL,
                 account INTEGER NOT NULL REFERENCES accounts(id))''')
+            self.db.execute(
+                '''CREATE TABLE IF NOT EXISTS clients
+                (api_url TEXT PRIMARY KEY,
+                id TEXT NOT NULL,
+                secret TEXT NOT NULL)''')
 
-    def execute(self, statement: str, args=()) -> sqlite3.Cursor:
-        return self.db.execute(statement, args)
+    # ==== client =====
 
-    def commit(self, statement: str, args=()) -> sqlite3.Cursor:
+    def get_client(self, api_url: str) -> Optional[sqlite3.Row]:
+        return self.db.execute(
+            'SELECT * FROM clients WHERE api_url=?', (api_url,)).fetchone()
+
+    def add_client(self, api_url: str, client_id: str,
+                   client_secret: str) -> None:
+        query = 'INSERT INTO clients VALUES (?,?,?)'
         with self.db:
-            return self.db.execute(statement, args)
-
-    def close(self) -> None:
-        self.db.close()
+            self.db.execute(query, (api_url, client_id, client_secret))
 
     # ==== account =====
 

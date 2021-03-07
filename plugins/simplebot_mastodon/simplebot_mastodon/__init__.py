@@ -132,8 +132,7 @@ def cmd_login(command: IncomingCommand, replies: Replies) -> None:
             text='No more accounts allowed from {}'.format(api_url))
         return
 
-    m = mastodon.Mastodon(api_base_url=api_url, ratelimit_method='throw')
-    m.log_in(email, passwd)
+    m = get_session(dict(api_url=api_url, email=email, password=passwd))
     uname = m.me().acct.lower()
 
     old_user = db.get_account_by_user(uname, api_url)
@@ -788,7 +787,16 @@ def cmd_search(command: IncomingCommand, replies: Replies) -> None:
 # ======== Utilities ===============
 
 def get_session(acc) -> mastodon.Mastodon:
-    m = mastodon.Mastodon(api_base_url=acc['api_url'],
+    client = db.get_client(acc['api_url'])
+    if client:
+        client_id, client_secret = client['id'], client['secret']
+    else:
+        client_id, client_secret = mastodon.Mastodon.create_app(
+            'DeltaChat Bridge', api_base_url=acc['api_url'])
+        db.add_client(acc['api_url'], client_id, client_secret)
+    m = mastodon.Mastodon(client_id=client_id,
+                          client_secret=client_secret,
+                          api_base_url=acc['api_url'],
                           ratelimit_method='throw')
     m.log_in(acc['email'], acc['password'])
     return m
