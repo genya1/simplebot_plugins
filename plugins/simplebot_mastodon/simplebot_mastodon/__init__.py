@@ -1,5 +1,6 @@
 
 import os
+import ssl
 import tempfile
 import time
 from enum import Enum
@@ -1066,10 +1067,10 @@ def listen_to_mastodon() -> None:
                     m = get_session(acc)
                     _check_notifications(acc, m)
                     _check_home(acc, m)
-                except mastodon.MastodonUnauthorizedError:
+                except (mastodon.MastodonUnauthorizedError, ssl.SSLCertVerificationError):
                     db.remove_account(acc['id'])
                     dbot.get_chat(acc['addr']).send_text(
-                        'You have logged out from: ' + acc['api_url'])
+                        'ERROR! You have been logged out from: ' + acc['api_url'])
                 except Exception as ex:
                     dbot.logger.exception(ex)
             time.sleep(2)
