@@ -8,6 +8,8 @@ from typing import Generator
 
 import qrcode
 from deltachat import Chat, Contact, Message
+from deltachat.capi import lib, ffi
+from deltachat.cutil import as_dc_charpointer, from_dc_charpointer
 from jinja2 import Template
 from simplebot import DeltaBot
 from simplebot.bot import Replies
@@ -117,10 +119,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
             return
 
         db.set_channel_last_pub(ch['id'], time.time())
-        name = get_name(message.get_sender_contact())
-        text = '{}:\n{}'.format(name, message.text)
-
-        channel_posts.put((text, message.filename, get_cchats(ch['id'])))
+        channel_posts.put((message, get_cchats(ch['id'])))
     elif ch:
         replies.add(text='❌ Only channel operators can do that.')
 
@@ -495,18 +494,32 @@ def _process_channels() -> None:
         _send_diffusion(*channel_posts.get())
 
 
-def _send_diffusion(text: str, filename: str, chats: list) -> None:
+def _send_diffusion(message: Message, chats: list) -> None:
     log = "diffusion: id={} chat={} sent with text: {!r}"
-    if filename:
-        view_type = "file"
+    text = message.text
+    if lib.dc_msg_has_html(message._dc_msg):
+        html = from_dc_charpointer(
+            lib.dc_get_msg_html(dbot.account._dc_context, message.id))
     else:
-        view_type = "text"
+        html = None
+    filename = message.filename
+    quote = message.quote
+    sender = get_name(message.get_sender_contact())
     for chat in chats:
-        msg = Message.new_empty(dbot.account, view_type)
-        if text is not None:
+        msg = Message(dbot.account, ffi.gc(
+            lib.dc_msg_new(dbot.account._dc_context, message._view_type),
+            lib.dc_msg_unref
+        ))
+        if text:
             msg.set_text(text)
+        if html:
+            lib.dc_msg_set_html(msg._dc_msg, as_dc_charpointer(html))
         if filename:
             msg.set_file(filename)
+        if quote:
+            msg.quote = quote
+        lib.dc_msg_set_override_sender_name(
+            msg._dc_msg, as_dc_charpointer(sender))
         try:
             msg = chat.send_msg(msg)
             dbot.logger.info(log.format(msg.id, msg.chat, msg.text[:50]))
