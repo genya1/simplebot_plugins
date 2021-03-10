@@ -184,7 +184,7 @@ def _check_feed(f) -> None:
             msg = Message.new_empty(dbot.account, "text")
             lib.dc_msg_set_html(msg._dc_msg, as_dc_charpointer(html))
             dbot.get_chat(gid).send_msg(msg)
-        except ValueError:
+        except (ValueError, AttributeError):
             db.remove_fchat(gid)
 
     latest = get_latest_date(d.entries) or f['latest']
