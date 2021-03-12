@@ -1,9 +1,7 @@
 
+import simplebot
 import translators as ts
-from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 __version__ = '1.0.0'
 langs = {
@@ -115,19 +113,15 @@ langs = {
 }
 
 
-@deltabot_hookimpl
-def deltabot_init(bot: DeltaBot) -> None:
-    bot.commands.register(name="/tr", func=cmd_tr)
-
-
-def cmd_tr(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def tr(payload: str, replies: Replies) -> None:
     """Translate text.
 
     You need to pass origin and destination language.
     Example: `/tr en es hello world`
     """
-    if command.payload:
-        l1, l2, text = command.payload.split(maxsplit=2)
+    if payload:
+        l1, l2, text = payload.split(maxsplit=2)
         replies.add(
             text=ts.google(text, from_language=l1, to_language=l2))
     else:
