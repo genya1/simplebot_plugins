@@ -2,48 +2,35 @@
 import os
 import time
 
-from deltachat import Chat, Contact
+import simplebot
+from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager, Status
 
 __version__ = '1.0.0'
 BARS = ['🟩', '🟥', '🟦', '🟪', '🟧', '🟨', '🟫', '⬛']
 db: DBManager
-dbot: DeltaBot
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global db, dbot
-    dbot = bot
-    db = get_db(bot)
-
-    dbot.commands.register('/poll_new', cmd_new)
-    dbot.commands.register('/poll_end', cmd_end)
-    dbot.commands.register('/poll_get', cmd_get)
-    dbot.commands.register('/poll_status', cmd_status)
-    dbot.commands.register('/poll_list', cmd_list)
-    dbot.commands.register('/poll_settings', cmd_settings)
-    dbot.commands.register('/vote', cmd_vote)
+    global db
+    db = _get_db(bot)
 
 
-@deltabot_hookimpl
-def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
-    me = dbot.self_contact
+@simplebot.hookimpl
+def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact) -> None:
+    me = bot.self_contact
     if me == contact or len(chat.get_contacts()) <= 1:
         for poll in db.get_gpolls_by_gid(chat.id):
             db.remove_gpoll_by_id(poll['id'])
 
 
-# ======== Commands ===============
-
-def cmd_new(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def poll_new(bot: DeltaBot, payload: str, message: Message,
+             replies: Replies) -> None:
     """Create a new poll in the group it is sent, or a public poll if sent in private.
 
     Example:
@@ -52,7 +39,7 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
     no
     maybe
     """
-    lns = command.payload.split('\n')
+    lns = payload.split('\n')
     if len(lns) < 3:
         replies.add(text='Invalid poll, at least two options needed')
         return
@@ -73,8 +60,8 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
                 text='Up to 150 characters per option are allowed')
             return
 
-    if command.message.chat.is_group():
-        gid = command.message.chat.id
+    if message.chat.is_group():
+        gid = message.chat.id
         poll = db.get_gpoll_by_question(gid, question)
         if poll:
             replies.add(text='Group already has a poll with that name')
@@ -86,7 +73,7 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
             db.add_goption(i, poll['id'], opt)
         replies.add(text=format_gpoll(poll))
     else:
-        addr = command.message.get_sender_contact().addr
+        addr = message.get_sender_contact().addr
         poll = db.get_poll_by_question(addr, question)
         if poll:
             replies.add(text='You already have a poll with that name')
@@ -96,57 +83,63 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
         assert poll is not None
         for i, opt in enumerate(lines):
             db.add_option(i, poll['id'], opt)
-        replies.add(text=format_poll(poll))
+        replies.add(text=_format_poll(bot, poll))
 
 
-def cmd_get(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def poll_get(bot: DeltaBot, payload: str, message: Message,
+             replies: Replies) -> None:
     """Get poll with given id.
     """
-    if len(command.args) not in (1, 2):
+    args = payload.split()
+    if len(args) not in (1, 2):
         replies.add(text='Invalid syntax')
         return
-    if len(command.args) == 2:
-        chat = command.bot.get_chat(int(command.args[0]))
-        command.payload = command.args[1]
-        if command.message.get_sender_contact() not in chat.get_contacts():
+    if len(args) == 2:
+        chat = bot.get_chat(int(args[0]))
+        payload = args[1]
+        if message.get_sender_contact() not in chat.get_contacts():
             replies.add(text='You are not a member of that group')
             return
     else:
-        chat = command.message.chat
+        chat = message.chat
 
-    pid = int(command.payload)
+    pid = int(payload)
     poll = db.get_gpoll_by_id(pid)
     if poll and chat.id == poll['gid']:
         closed = poll['status'] == Status.CLOSED
         replies.add(text=format_gpoll(poll, closed=closed))
-    elif len(command.args) == 1:
+    elif len(args) == 1:
         poll = db.get_poll_by_id(pid)
         if poll:
             closed = poll['status'] == Status.CLOSED
-            replies.add(text=format_poll(poll, closed=closed))
+            replies.add(text=_format_poll(bot, poll, closed=closed))
         else:
             replies.add(text='Invalid poll id')
     else:
         replies.add(text='Invalid poll id')
 
 
-def cmd_status(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def poll_status(bot: DeltaBot, payload: str, message: Message,
+                replies: Replies) -> None:
     """Get poll status.
     """
-    if len(command.args) not in (1, 2):
+    args = payload.split()
+    if len(args) not in (1, 2):
         replies.add(text='Invalid syntax')
         return
-    if len(command.args) == 2:
-        chat = command.bot.get_chat(int(command.args[0]))
-        command.payload = command.args[1]
-        if command.message.get_sender_contact() not in chat.get_contacts():
+    if len(args) == 2:
+        chat = bot.get_chat(int(args[0]))
+        payload = args[1]
+        if message.get_sender_contact() not in chat.get_contacts():
             replies.add(text='You are not a member of that group')
             return
     else:
-        chat = command.message.chat
+        chat = message.chat
 
-    pid = int(command.payload)
-    addr = command.message.get_sender_contact().addr
+    pid = int(payload)
+    addr = message.get_sender_contact().addr
     poll = db.get_gpoll_by_id(pid)
     if poll and chat.id == poll['gid']:
         voted = db.get_gvote(poll['id'], addr) is not None
@@ -156,15 +149,15 @@ def cmd_status(command: IncomingCommand, replies: Replies) -> None:
                 text=format_gpoll(poll, voted=voted, closed=closed))
         else:
             replies.add(text="You can't see poll status until you vote")
-    elif len(command.args) == 1:
+    elif len(args) == 1:
         poll = db.get_poll_by_id(pid)
         if poll:
             is_admin = addr == poll['addr']
             voted = is_admin or db.get_vote(poll['id'], addr) is not None
             if voted:
                 closed = poll['status'] == Status.CLOSED
-                replies.add(text=format_poll(
-                    poll, voted=voted, closed=closed, is_admin=is_admin))
+                replies.add(text=_format_poll(
+                    bot, poll, voted=voted, closed=closed, is_admin=is_admin))
             else:
                 replies.add(
                     text="You can't see poll status until you vote")
@@ -174,30 +167,33 @@ def cmd_status(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='Invalid poll id')
 
 
-def cmd_settings(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def poll_settings(bot: DeltaBot, payload: str, message: Message,
+                  replies: Replies) -> None:
     """Get poll advanced settings.
     """
-    if len(command.args) not in (1, 2):
+    args = payload.split()
+    if len(args) not in (1, 2):
         replies.add(text='Invalid syntax')
         return
-    if len(command.args) == 2:
-        chat = command.bot.get_chat(int(command.args[0]))
-        command.payload = command.args[1]
-        if command.message.get_sender_contact() not in chat.get_contacts():
+    if len(args) == 2:
+        chat = bot.get_chat(int(args[0]))
+        payload = args[1]
+        if message.get_sender_contact() not in chat.get_contacts():
             replies.add(text='You are not a member of that group')
             return
     else:
-        chat = command.message.chat
+        chat = message.chat
 
-    pid = int(command.payload)
+    pid = int(payload)
     poll = db.get_gpoll_by_id(pid)
     if poll and chat.id == poll['gid']:
         gid = '{}_{}'.format(poll['gid'], poll['id'])
         text = '📊 /poll_get_{}\n{}\n\n'.format(gid, poll['question'])
         text += '🛑 /poll_end_{}\n\n'.format(gid)
         replies.add(text=text)
-    elif len(command.args) == 1:
-        addr = command.message.get_sender_contact().addr
+    elif len(args) == 1:
+        addr = message.get_sender_contact().addr
         poll = db.get_poll_by_id(pid)
         if poll and addr == poll['addr']:
             text = '📊 /poll_get_{}\n{}\n\n'.format(
@@ -210,11 +206,12 @@ def cmd_settings(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='Invalid poll id')
 
 
-def cmd_list(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def poll_list(message: Message, replies: Replies) -> None:
     """Show group poll list or your public polls if sent in private.
     """
-    if command.message.chat.is_group():
-        polls = db.get_gpolls_by_gid(command.message.chat.id)
+    if message.chat.is_group():
+        polls = db.get_gpolls_by_gid(message.chat.id)
         if polls:
             text = ''
             for poll in polls:
@@ -229,7 +226,7 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
             replies.add(text='Empty list')
     else:
         polls = db.get_polls_by_addr(
-            command.message.get_sender_contact().addr)
+            message.get_sender_contact().addr)
         if polls:
             text = ''
             for poll in polls:
@@ -243,40 +240,43 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
             replies.add(text='Empty list')
 
 
-def cmd_end(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def poll_end(bot: DeltaBot, payload: str, message: Message,
+            replies: Replies) -> None:
     """Close the poll with the given id.
     """
-    if len(command.args) not in (1, 2):
+    args = payload.split()
+    if len(args) not in (1, 2):
         replies.add(text='Invalid syntax')
         return
-    if len(command.args) == 2:
-        chat = command.bot.get_chat(int(command.args[0]))
-        command.payload = command.args[1]
-        if command.message.get_sender_contact() not in chat.get_contacts():
+    if len(args) == 2:
+        chat = bot.get_chat(int(args[0]))
+        payload = args[1]
+        if message.get_sender_contact() not in chat.get_contacts():
             replies.add(text='You are not a member of that group')
             return
     else:
-        chat = command.message.chat
+        chat = message.chat
 
-    pid = int(command.payload)
+    pid = int(payload)
     poll = db.get_gpoll_by_id(pid)
-    addr = command.message.get_sender_contact().addr
+    addr = message.get_sender_contact().addr
     if poll and chat.id == poll['gid']:
         db.end_gpoll(poll['id'])
         text = format_gpoll(poll, closed=True)
         text += '\n\n(Poll closed by {})'.format(addr)
         replies.add(text=text, chat=chat)
         db.remove_gpoll_by_id(pid)
-    elif len(command.args) == 1:
+    elif len(args) == 1:
         poll = db.get_poll_by_id(pid)
         if poll and addr == poll['addr']:
             db.end_poll(poll['id'])
-            text = format_poll(poll, closed=True)
+            text = _format_poll(bot, poll, closed=True)
             for addr in db.get_poll_participants(poll['id']):
-                contact = command.bot.get_contact(addr)
+                contact = bot.get_contact(addr)
                 if not contact.is_blocked():
                     replies.add(
-                        text=text, chat=command.bot.get_chat(contact))
+                        text=text, chat=bot.get_chat(contact))
             db.remove_poll_by_id(poll['id'])
         else:
             replies.add(text='Invalid poll id')
@@ -284,25 +284,28 @@ def cmd_end(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='Invalid poll id')
 
 
-def cmd_vote(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def vote(bot: DeltaBot, payload: str, message: Message,
+         replies: Replies) -> None:
     """Vote in polls.
     """
-    if len(command.args) not in (2, 3):
+    args = payload.split()
+    if len(args) not in (2, 3):
         replies.add(text='Invalid syntax')
         return
-    if len(command.args) == 3:
-        chat = command.bot.get_chat(int(command.args[0]))
-        if command.message.get_sender_contact() not in chat.get_contacts():
+    if len(args) == 3:
+        chat = bot.get_chat(int(args[0]))
+        if message.get_sender_contact() not in chat.get_contacts():
             replies.add(text='You are not a member of that group')
             return
-        pid = int(command.args[1])
-        oid = int(command.args[2]) - 1
+        pid = int(args[1])
+        oid = int(args[2]) - 1
     else:
-        chat = command.message.chat
-        pid = int(command.args[0])
-        oid = int(command.args[1]) - 1
+        chat = message.chat
+        pid = int(args[0])
+        oid = int(args[1]) - 1
 
-    addr = command.message.get_sender_contact().addr
+    addr = message.get_sender_contact().addr
     poll = db.get_gpoll_by_id(pid)
     if poll and chat.id == poll['gid']:
         if poll['status'] == Status.CLOSED:
@@ -314,7 +317,7 @@ def cmd_vote(command: IncomingCommand, replies: Replies) -> None:
         else:
             db.add_gvote(poll['id'], addr, oid)
             replies.add(text=format_gpoll(poll, voted=True))
-    elif len(command.args) == 2:
+    elif len(args) == 2:
         poll = db.get_poll_by_id(pid)
         if poll:
             if poll['status'] == Status.CLOSED:
@@ -326,15 +329,13 @@ def cmd_vote(command: IncomingCommand, replies: Replies) -> None:
             else:
                 is_admin = addr == poll['addr']
                 db.add_vote(poll['id'], addr, oid)
-                replies.add(text=format_poll(
-                    poll, voted=True, is_admin=is_admin))
+                replies.add(text=_format_poll(
+                    bot, poll, voted=True, is_admin=is_admin))
         else:
             replies.add(text='Invalid poll id')
     else:
         replies.add(text='Invalid poll id')
 
-
-# ======== Utilities ===============
 
 def format_gpoll(poll, voted: bool = False, closed: bool = False) -> str:
     gid = '{}_{}'.format(poll['gid'], poll['id'])
@@ -362,8 +363,8 @@ def format_gpoll(poll, voted: bool = False, closed: bool = False) -> str:
     return text
 
 
-def format_poll(poll, voted: bool = False, closed: bool = False,
-                is_admin: bool = False) -> str:
+def _format_poll(bot:DeltaBot, poll, voted: bool = False,
+                 closed: bool = False, is_admin: bool = False) -> str:
     if closed:
         text = '📊 POLL RESULTS\n'
         status = 'Finished'
@@ -386,11 +387,11 @@ def format_poll(poll, voted: bool = False, closed: bool = False,
             text += '/vote_{}_{} {}\n\n'.format(
                 poll['id'], opt['id']+1, opt['text'])
     text += '[{} - {} votes]\nPoll by {}'.format(
-        status, vcount, dbot.self_contact.addr)
+        status, vcount, bot.self_contact.addr)
     return text
 
 
-def get_db(bot: DeltaBot) -> DBManager:
+def _get_db(bot: DeltaBot) -> DBManager:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
