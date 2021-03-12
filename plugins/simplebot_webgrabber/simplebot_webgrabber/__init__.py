@@ -5,27 +5,24 @@ import os
 import re
 import shutil
 import tempfile
-import threading
 import zipfile
 import zlib
 from urllib.parse import quote, quote_plus, unquote_plus
 
 import bs4
 import requests
+import simplebot
 from deltachat import Message
 from html2text import html2text
 from readability import Document
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 __version__ = '1.0.0'
 zlib.Z_DEFAULT_COMPRESSION = 9
 ua = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0) Gecko/20100101'
 ua += ' Firefox/60.0'
 HEADERS = {'user-agent': ua}
-dbot: DeltaBot
 img_providers: list
 
 
@@ -33,33 +30,16 @@ class FileTooBig(ValueError):
     pass
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global dbot, img_providers
-    dbot = bot
+    global img_providers
     img_providers = [_dogpile_imgs, _startpage_imgs, _google_imgs]
 
-    getdefault('max_size', 1024*1024*5)
-
-    bot.filters.register(name=__name__, func=filter_messages)
-
-    bot.commands.register('/ddg', cmd_ddg)
-    bot.commands.register('/wt', cmd_wt)
-    bot.commands.register('/w', cmd_w)
-    bot.commands.register('/wttr', cmd_wttr)
-    bot.commands.register('/web', cmd_web)
-    bot.commands.register('/read', cmd_read)
-    bot.commands.register('/img', cmd_img)
-    bot.commands.register('/img1', cmd_img1)
-    bot.commands.register('/img5', cmd_img5)
-    bot.commands.register('/lyrics', cmd_lyrics)
+    _getdefault(bot, 'max_size', 1024*1024*5)
 
 
-# ======== Filters ===============
-
-def filter_messages(message: Message, replies: Replies) -> None:
+@simplebot.filter(name=__name__)
+def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Process messages containing URLs.
     """
     match = re.search(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|'
@@ -68,7 +48,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
         return
     kwargs = dict(quote=message)
     url = match.group()
-    nitter = getdefault('nitter_instance', 'https://nitter.cc')
+    nitter = _getdefault(bot, 'nitter_instance', 'https://nitter.cc')
     if url.startswith('https://twitter.com/'):
         url = url.replace('https://twitter.com', nitter, count=1)
     elif url.startswith('https://mobile.twitter.com/'):
@@ -115,12 +95,12 @@ def filter_messages(message: Message, replies: Replies) -> None:
         else:
             size = r.headers.get('content-size')
             if not size:
-                size = 0
-                max_size = 1024*1024
+                _size = 0
+                max_size = 1024*1024*5
                 for chunk in r.iter_content(chunk_size=102400):
-                    size += len(chunk)
-                    if size > max_size:
-                        size = '>1MB'
+                    _size += len(chunk)
+                    if _size > max_size:
+                        size = '>5MB'
                         break
                 else:
                     size = '{:,}'.format(size)
@@ -131,134 +111,107 @@ def filter_messages(message: Message, replies: Replies) -> None:
     replies.add(**kwargs)
 
 
-# ======== Commands ===============
-
-def cmd_ddg(command: IncomingCommand, replies: Replies) -> None:
-    """Search in DuckDuckGo.
-    """
-    mode = get_mode(command.message.get_sender_contact().addr)
+@simplebot.command
+def ddg(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
+    """Search in DuckDuckGo."""
+    mode = _get_mode(bot, message.get_sender_contact().addr)
     page = 'lite' if mode == 'htmlzip' else 'html'
     url = "https://duckduckgo.com/{}?q={}".format(
-        page, quote_plus(command.payload))
-    replies.add(**download_file(url, mode))
+        page, quote_plus(payload))
+    replies.add(**_download_file(bot, url, mode))
 
 
-def cmd_wt(command: IncomingCommand, replies: Replies) -> None:
-    """Search in Wiktionary.
-    """
-    sender = command.message.get_sender_contact().addr
-    lang = get_locale(sender)
+@simplebot.command
+def wt(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
+    """Search in Wiktionary."""
+    sender = message.get_sender_contact().addr
+    lang = _get_locale(bot, sender)
     url = "https://{}.m.wiktionary.org/wiki/?search={}".format(
-        lang, quote_plus(command.payload))
-    replies.add(**download_file(url, get_mode(sender)))
+        lang, quote_plus(payload))
+    replies.add(**_download_file(url, _get_mode(bot, sender)))
 
 
-def cmd_w(command: IncomingCommand, replies: Replies) -> None:
-    """Search in Wikipedia.
-    """
-    sender = command.message.get_sender_contact().addr
-    lang = get_locale(sender)
+@simplebot.command
+def w(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
+    """Search in Wikipedia."""
+    sender = message.get_sender_contact().addr
+    lang = _get_locale(bot, sender)
     url = "https://{}.m.wikipedia.org/wiki/?search={}".format(
-        lang, quote_plus(command.payload))
-    replies.add(**download_file(url, get_mode(sender)))
+        lang, quote_plus(payload))
+    replies.add(**_download_file(bot, url, _get_mode(bot, sender)))
 
 
-def cmd_wttr(command: IncomingCommand, replies: Replies) -> None:
-    """Search weather info from wttr.in
-    """
-    lang = get_locale(command.message.get_sender_contact().addr)
-    url = 'https://wttr.in/{}_Fnp_lang={}.png'.format(
-        quote(command.payload), lang)
-    reply = download_file(url)
+@simplebot.command
+def wttr(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
+    """Search weather info from wttr.in"""
+    lang = _get_locale(bot, message.get_sender_contact().addr)
+    url = 'https://wttr.in/{}_Fnp_lang={}.png'.format(quote(payload), lang)
+    reply = _download_file(bot, url)
     reply.pop('text')
     replies.add(**reply)
 
 
-def cmd_web(command: IncomingCommand, replies: Replies) -> None:
-    """Download a webpage or file.
-    """
-    def download(cmd):
-        mode = get_mode(cmd.message.get_sender_contact().addr)
-        try:
-            d = download_file(cmd.payload, mode)
-            text = d.get('text')
-            filename = d.get('filename')
-            bytefile = d.get('bytefile')
-            tempdir = tempfile.mkdtemp() if bytefile else None
-            try:
-                if bytefile:
-                    filename = os.path.join(tempdir, filename)
-                    with open(filename, "wb") as f:
-                        f.write(bytefile.read())
-                if filename:
-                    view_type = "file"
-                else:
-                    view_type = "text"
-                msg = Message.new_empty(cmd.bot.account, view_type)
-                if text is not None:
-                    msg.set_text(text)
-                if filename is not None:
-                    msg.set_file(filename)
-                msg = cmd.message.chat.send_msg(msg)
-                cmd.bot.logger.info(
-                    "reply id={} chat={} sent with text: {!r}".format(
-                        msg.id, msg.chat, msg.text[:50]))
-            finally:
-                if tempdir:
-                    shutil.rmtree(tempdir)
-        except FileTooBig as err:
-            cmd.message.chat.send_text(str(err))
-
-    threading.Thread(target=download, args=(command,), daemon=True).start()
-
-
-def cmd_read(command: IncomingCommand, replies: Replies) -> None:
-    """Download a webpage and try to improve its readability.
-    """
-    mode = get_mode(command.message.get_sender_contact().addr)
+@simplebot.command
+def web(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
+    """Download a webpage or file."""
+    mode = _get_mode(bot, message.get_sender_contact().addr)
     try:
-        replies.add(**download_file(command.payload, mode, True))
+        replies.add(**_download_file(bot, payload, mode))
     except FileTooBig as err:
         replies.add(text=str(err))
 
 
-def cmd_img(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command(name='/read')
+def cmd_read(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
+    """Download a webpage and try to improve its readability."""
+    mode = _get_mode(bot, message.get_sender_contact().addr)
+    try:
+        replies.add(**_download_file(bot, payload, mode, True))
+    except FileTooBig as err:
+        replies.add(text=str(err))
+
+
+@simplebot.command
+def img(bot: DeltaBot, payload: str, replies: Replies) -> None:
     """Search for images, returns image links.
     """
-    text = '\n\n'.join(get_images(command.payload))
+    text = '\n\n'.join(_get_images(bot, payload))
     if text:
-        replies.add(text='{}:\n\n{}'.format(command.payload, text))
+        replies.add(text='{}:\n\n{}'.format(payload, text))
     else:
-        replies.add(text='No results for: {}'.format(command.payload))
+        replies.add(text='No results for: {}'.format(payload))
 
 
-def cmd_img1(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def img1(bot: DeltaBot, payload: str, replies: Replies) -> None:
     """Get an image based on the given text.
     """
-    imgs = download_images(command.payload, 1)
+    imgs = _download_images(bot, payload, 1)
     if not imgs:
-        replies.add(text='No results for: {}'.format(command.payload))
+        replies.add(text='No results for: {}'.format(payload))
     else:
         for reply in imgs:
             replies.add(**reply)
 
 
-def cmd_img5(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def img5(bot: DeltaBot, payload: str, replies: Replies) -> None:
     """Search for images, returns 5 results.
     """
-    imgs = download_images(command.payload, 5)
+    imgs = _download_images(bot, payload, 5)
     if not imgs:
-        replies.add(text='No results for: {}'.format(command.payload))
+        replies.add(text='No results for: {}'.format(payload))
     else:
         for reply in imgs:
             replies.add(**reply)
 
 
-def cmd_lyrics(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def lyrics(payload: str, replies: Replies) -> None:
     """Get song lyrics.
     """
     base_url = 'https://www.lyrics.com'
-    url = "{}/lyrics/{}".format(base_url, quote(command.payload))
+    url = "{}/lyrics/{}".format(base_url, quote(payload))
     with requests.get(url, headers=HEADERS) as r:
         r.raise_for_status()
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
@@ -279,33 +232,31 @@ def cmd_lyrics(command: IncomingCommand, replies: Replies) -> None:
                 replies.add(text=text)
                 return
 
-    replies.add(text='No results for: {}'.format(command.payload))
+    replies.add(text='No results for: {}'.format(payload))
 
 
-# ======== Utilities ===============
-
-def getdefault(key: str, value=None) -> str:
-    val = dbot.get(key, scope=__name__)
+def _getdefault(bot: DeltaBot, key: str, value=None) -> str:
+    val = bot.get(key, scope=__name__)
     if val is None and value is not None:
-        dbot.set(key, value, scope=__name__)
+        bot.set(key, value, scope=__name__)
         val = value
     return val
 
 
-def get_locale(addr: str) -> str:
-    return dbot.get('locale', scope=addr) or dbot.get('locale') or 'en'
+def _get_locale(bot: DeltaBot, addr: str) -> str:
+    return bot.get('locale', scope=addr) or bot.get('locale') or 'en'
 
 
-def get_mode(addr: str) -> str:
-    return dbot.get('mode', scope=addr) or dbot.get('mode') or 'htmlzip'
+def _get_mode(bot: DeltaBot, addr: str) -> str:
+    return bot.get('mode', scope=addr) or bot.get('mode') or 'htmlzip'
 
 
 def html2read(html) -> str:
     return Document(html).summary()
 
 
-def download_images(query: str, img_count: int) -> list:
-    imgs = get_images(query)
+def _download_images(bot: DeltaBot, query: str, img_count: int) -> list:
+    imgs = _get_images(bot, query)
     results = []
     for img_url in imgs[:img_count]:
         with requests.get(img_url, headers=HEADERS) as r:
@@ -316,17 +267,17 @@ def download_images(query: str, img_count: int) -> list:
     return results
 
 
-def get_images(query: str) -> list:
+def _get_images(bot: DeltaBot, query: str) -> list:
     for provider in img_providers.copy():
         try:
-            dbot.logger.debug('Trying %s', provider)
+            bot.logger.debug('Trying %s', provider)
             imgs = provider(query)
             if imgs:
                 return imgs
         except Exception as err:
             img_providers.remove(provider)
             img_providers.append(provider)
-            dbot.logger.exception(err)
+            bot.logger.exception(err)
     return []
 
 
@@ -385,7 +336,7 @@ def _dogpile_imgs(query: str) -> list:
     return [img['src'] for img in soup('img')]
 
 
-def process_html(r) -> str:
+def _process_html(bot: DeltaBot, r) -> str:
     html, url = r.text, r.url
     soup = bs4.BeautifulSoup(html, 'html5lib')
     for t in soup(['script', 'iframe', 'noscript', 'link', 'meta']):
@@ -463,12 +414,12 @@ def process_html(r) -> str:
             if not re.match(r'^https?://', a['href']):
                 a['href'] = '{}/{}'.format(url, a['href'])
             a['href'] = 'mailto:{}?body=/web%20{}'.format(
-                dbot.self_contact.addr, quote_plus(a['href']))
+                bot.self_contact.addr, quote_plus(a['href']))
     return str(soup)
 
 
-def process_file(r) -> tuple:
-    max_size = int(getdefault('max_size'))
+def _process_file(bot: DeltaBot, r) -> tuple:
+    max_size = int(_getdefault(bot, 'max_size'))
     data = b''
     size = 0
     for chunk in r.iter_content(chunk_size=10240):
@@ -521,20 +472,20 @@ def save_htmlzip(html) -> str:
     return path
 
 
-def download_file(url: str, mode: str = 'htmlzip',
-                  readability: bool = False) -> dict:
+def _download_file(bot: DeltaBot, url: str, mode: str = 'htmlzip',
+                   readability: bool = False) -> dict:
     if '://' not in url:
         url = 'http://'+url
     with requests.get(url, headers=HEADERS, stream=True) as r:
         r.raise_for_status()
         r.encoding = 'utf-8'
-        dbot.logger.debug(
+        bot.logger.debug(
             'Content type: {}'.format(r.headers['content-type']))
         if 'text/html' in r.headers['content-type']:
             if mode == 'text':
                 html = html2read(r.text) if readability else r.text
                 return dict(text=html2text(html))
-            html = process_html(r)
+            html = _process_html(bot, r)
             if readability:
                 html = html2read(html)
             if mode == 'md':
@@ -544,6 +495,6 @@ def download_file(url: str, mode: str = 'htmlzip',
                 return dict(text=r.url,
                             filename=save_file(html, '.html'))
             return dict(text=r.url, filename=save_htmlzip(html))
-        data, ext = process_file(r)
+        data, ext = _process_file(bot, r)
         return dict(text=r.url, filename='web'+(ext or ''),
                     bytefile=io.BytesIO(data))
