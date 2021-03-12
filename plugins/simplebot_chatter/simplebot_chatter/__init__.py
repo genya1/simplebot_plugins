@@ -2,38 +2,28 @@ import os
 import pathlib
 import random
 
+import simplebot
 from chatterbot import ChatBot
 from chatterbot.conversation import Statement
 from chatterbot.trainers import ChatterBotCorpusTrainer, ListTrainer
 from deltachat import Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 __version__ = '1.0.0'
-DBOT: DeltaBot
 CBOT: ChatBot
 LIST_TRAINER: ListTrainer
 default_replies = ['😐', '😶', '🙄', '🤔', '😕', '🤯', '🤐', '🥴', '🧐']
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global DBOT
-    DBOT = bot
-    getdefault('learn', '1')
-    getdefault('reply_to_dash', '1')
-    getdefault('min_confidence', '0.3')
-
-    bot.filters.register(name=__name__, func=filter_messages)
-
-    bot.commands.register(name="/chatter_learn", func=cmd_learn, admin=True)
+    _getdefault(bot, 'learn', '1')
+    _getdefault(bot, 'reply_to_dash', '1')
+    _getdefault(bot, 'min_confidence', '0.3')
 
 
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_start(bot: DeltaBot) -> None:
     global CBOT, LIST_TRAINER
 
@@ -72,10 +62,10 @@ def deltabot_start(bot: DeltaBot) -> None:
         ])
 
     CBOT = ChatBot(
-        DBOT.self_contact.addr,
+        bot.self_contact.addr,
         storage_adapter='chatterbot.storage.SQLStorageAdapter',
-        database_uri=get_db_uri(bot),
-        read_oly=getdefault('learn', '1') == '0',
+        database_uri=_get_db_uri(bot),
+        read_oly=_getdefault(bot, 'learn', '1') == '0',
         logic_adapters=[
             {
                 'import_path': 'chatterbot.logic.BestMatch',
@@ -89,19 +79,18 @@ def deltabot_start(bot: DeltaBot) -> None:
     trainer.train('chatterbot.corpus.' + corpus.get(locale, 'english'))
 
 
-# ======== Filters ===============
-
-def filter_messages(message: Message, replies: Replies) -> None:
+@simplebot.filter(name=__name__)
+def filter_messages(message: Message, bot: DeltaBot, replies: Replies) -> None:
     """Natural language processing and learning.
     """
     if not message.text:
         return
 
-    self_contact = DBOT.self_contact
-    name = DBOT.account.get_config('displayname')
+    self_contact = bot.self_contact
+    name = bot.account.get_config('displayname')
     quote = message.quote
 
-    reply_to_dash = getdefault('reply_to_dash', '1') not in ('0', 'no')
+    reply_to_dash = _getdefault(bot, 'reply_to_dash', '1') not in ('0', 'no')
     resp = None
     if reply_to_dash and message.text.startswith('#') and \
        len(message.text) > 1:
@@ -110,51 +99,48 @@ def filter_messages(message: Message, replies: Replies) -> None:
             quote and quote.get_sender_contact() == self_contact):
         resp = CBOT.get_response(message.text)
     elif self_contact.addr in message.text or (name and name in message.text):
-        resp = CBOT.get_response(rmprefix(rmprefix(
+        resp = CBOT.get_response(_rmprefix(_rmprefix(
             message.text, self_contact.addr), name).strip(':,').strip())
 
     if resp:
-        DBOT.logger.debug('Confidence: %s | message: %s | reply: %s',
+        bot.logger.debug('Confidence: %s | message: %s | reply: %s',
                           resp.confidence, resp.in_response_to, resp.text)
-        if resp.confidence >= float(getdefault('min_confidence', '0')):
+        if resp.confidence >= float(_getdefault(bot, 'min_confidence', '0')):
             replies.add(text=resp.text)
         else:
             replies.add(text=random.choice(default_replies))
 
-    if quote and quote.text and getdefault('learn') == '1':
+    if quote and quote.text and _getdefault(bot, 'learn') == '1':
         CBOT.learn_response(
             Statement(text=message.text, in_response_to=quote.text))
 
 
-# ======== Commands ===============
-
-def cmd_learn(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command(admin=True)
+def chatter_learn(payload: str, replies: Replies) -> None:
     """Learn new response.
 
     You must provide two lines, the first line is the question and the
     second line is the response.
     """
-    LIST_TRAINER.train(command.payload.split('\n', maxsplit=1))
+    LIST_TRAINER.train(payload.split('\n', maxsplit=1))
     replies.add(text='✔️Learned.')
 
 
-# ======== Utilities ===============
-
-def rmprefix(text: str, prefix: str) -> str:
+def _rmprefix(text: str, prefix: str) -> str:
     return text[text.startswith(prefix) and len(prefix):]
 
 
-def getdefault(key: str, value: str = None) -> str:
-    val = DBOT.get(key, scope=__name__)
+def _getdefault(bot: DeltaBot, key: str, value: str = None) -> str:
+    val = bot.get(key, scope=__name__)
     if val is None and value is not None:
-        DBOT.set(key, value, scope=__name__)
+        bot.set(key, value, scope=__name__)
         val = value
     return val
 
 
-def get_db_uri(bot) -> str:
+def _get_db_uri(bot) -> str:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
     path = os.path.join(path, 'db.sqlite3')
-    return 'sqlite:///' + rmprefix(pathlib.Path(path).as_uri(), 'file://')
+    return 'sqlite:///' + _rmprefix(pathlib.Path(path).as_uri(), 'file://')
