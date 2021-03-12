@@ -48,7 +48,7 @@ class Board:
                     if n != MINE:
                         self._board[i][j] = HIDDEN
 
-    def get_score(self, date: int) -> float:
+    def get_score(self, date: float) -> float:
         mines = 0
         for row in self._board:
             for cell in row:

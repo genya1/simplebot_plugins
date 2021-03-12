@@ -3,11 +3,10 @@ import os
 import re
 import time
 
+import simplebot
 from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager
 from .game import Board
@@ -15,39 +14,27 @@ from .game import Board
 __version__ = '1.0.0'
 nick_re = re.compile(r'[-a-zA-Z0-9_]{1,16}$')
 db: DBManager
-dbot: DeltaBot
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global db, dbot
-    dbot = bot
-    db = get_db(bot)
-
-    bot.filters.register(name=__name__, func=filter_messages)
-
-    dbot.commands.register('/mines_play', cmd_play)
-    dbot.commands.register('/mines_repeat', cmd_repeat)
-    dbot.commands.register('/mines_nick', cmd_nick)
-    dbot.commands.register('/mines_top', cmd_top)
+    global db
+    db = _get_db(bot)
 
 
-@deltabot_hookimpl
-def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
+@simplebot.hookimpl
+def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact) -> None:
     game = db.get_game_by_gid(chat.id)
     if game:
-        me = dbot.self_contact
+        me = bot.self_contact
         if contact.addr in (me.addr, game['addr']):
             db.delete_game(game['addr'])
             if contact != me:
                 chat.remove_contact(me)
 
 
-# ======== Filters ===============
-
-def filter_messages(message: Message, replies: Replies) -> None:
+@simplebot.filter(name=__name__)
+def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Process move coordinates in Minesweeper game groups.
     """
     if len(message.text) != 2 or not message.text.isalnum() or \
@@ -62,20 +49,19 @@ def filter_messages(message: Message, replies: Replies) -> None:
         b = Board(game['board'])
         b.move(message.text)
         db.set_board(game['addr'], b.export())
-        replies.add(text=run_turn(message.chat.id))
+        replies.add(text=_run_turn(message.chat.id))
     except ValueError as err:
-        dbot.logger.exception(err)
+        bot.logger.exception(err)
         replies.add(text='❌ Invalid move!')
 
 
-# ======== Commands ===============
-
-def cmd_play(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def mines_play(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Start a new Minesweeper game.
 
     Example: `/mines_play`
     """
-    player = command.message.get_sender_contact()
+    player = message.get_sender_contact()
     if not db.get_nick(player.addr):
         text = "You need to set a nick before start playing,"
         text += " send /mines_nick Your Nick"
@@ -84,46 +70,48 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
     game = db.get_game_by_addr(player.addr)
 
     if game is None:  # create a new chat
-        chat = command.bot.create_group('💣 Minesweeper', [player.addr])
+        chat = bot.create_group('💣 Minesweeper', [player.addr])
         db.add_game(player.addr, chat.id, Board().export())
         text = 'Hello {}, in this group you can play Minesweeper.\n\n'.format(
             player.name)
-        replies.add(text=text + run_turn(chat.id), chat=chat)
+        replies.add(text=text + _run_turn(chat.id), chat=chat)
     else:
         db.set_board(game['addr'], Board().export())
-        if command.message.chat.id == game['gid']:
-            chat = command.message.chat
+        if message.chat.id == game['gid']:
+            chat = message.chat
         else:
-            chat = command.bot.get_chat(game['gid'])
+            chat = bot.get_chat(game['gid'])
         replies.add(
-            text='Game started!\n\n' + run_turn(game['gid']), chat=chat)
+            text='Game started!\n\n' + _run_turn(game['gid']), chat=chat)
 
 
-def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def mines_repeat(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Send Minesweeper game board again.
 
     Example: `/mines_repeat`
     """
-    game = db.get_game_by_addr(command.message.get_sender_contact().addr)
+    game = db.get_game_by_addr(message.get_sender_contact().addr)
     if game:
-        if command.message.chat.id == game['gid']:
-            chat = command.message.chat
+        if message.chat.id == game['gid']:
+            chat = message.chat
         else:
-            chat = command.bot.get_chat(game['gid'])
-        replies.add(text=run_turn(game['gid']), chat=chat)
+            chat = bot.get_chat(game['gid'])
+        replies.add(text=_run_turn(game['gid']), chat=chat)
     else:
         replies.add(
             text="No active game, send /mines_play to start playing.")
 
 
-def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def mines_nick(payload: str, message: Message, replies: Replies) -> None:
     """Set your nick shown in Minesweeper scoreboard or show your current nick if no new nick is provided.
 
     Example: `/mines_nick Dark Warrior`
     """
-    addr = command.message.get_sender_contact().addr
-    if command.payload:
-        new_nick = ' '.join(command.args)
+    addr = message.get_sender_contact().addr
+    if payload:
+        new_nick = ' '.join(payload.split())
         if not nick_re.match(new_nick):
             replies.add(
                 text='** Invalid nick, only letters, numbers, "-" and'
@@ -137,14 +125,15 @@ def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='** Nick: {}'.format(db.get_nick(addr)))
 
 
-def cmd_top(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def mines_top(message: Message, replies: Replies) -> None:
     """Send Minesweeper scoreboard.
 
     Example: `/mines_top`
     """
     limit = 15
     text = '🏆 Minesweeper Scoreboard\n\n'
-    game = db.get_game_by_addr(command.message.get_sender_contact().addr)
+    game = db.get_game_by_addr(message.get_sender_contact().addr)
     if not game:
         games = db.get_games(limit)
     else:
@@ -171,9 +160,7 @@ def cmd_top(command: IncomingCommand, replies: Replies) -> None:
     replies.add(text=text)
 
 
-# ======== Utilities ===============
-
-def run_turn(gid: int) -> str:
+def _run_turn(gid: int) -> str:
     g = db.get_game_by_gid(gid)
     assert g is not None
     if not g['board']:
@@ -197,7 +184,7 @@ def run_turn(gid: int) -> str:
     return text
 
 
-def get_db(bot: DeltaBot) -> DBManager:
+def _get_db(bot: DeltaBot) -> DBManager:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
