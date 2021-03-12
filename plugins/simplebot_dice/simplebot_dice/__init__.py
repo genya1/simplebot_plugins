@@ -1,38 +1,32 @@
 import random
 
+import simplebot
 from deltachat import Message
-from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 __version__ = '1.0.0'
 DICES = ('⚀', '⚁', '⚂', '⚃', '⚄', '⚅')
 
 
-@deltabot_hookimpl
-def deltabot_init(bot: DeltaBot) -> None:
-    bot.commands.register(name="/dice", func=cmd_dice)
-    bot.commands.register(name="/dice2", func=cmd_dice2)
-    bot.commands.register(name="/dice5", func=cmd_dice5)
-
-
-def cmd_dice(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def dice(payload: str, message: Message, replies: Replies) -> None:
     """Roll a dice.
     """
-    _roll_dice(int(command.payload or 1), command.message, replies)
+    _roll_dice(int(payload or 1), message, replies)
 
 
-def cmd_dice2(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def dice2(message: Message, replies: Replies) -> None:
     """Roll two dices.
     """
-    _roll_dice(2, command.message, replies)
+    _roll_dice(2, message, replies)
 
 
-def cmd_dice5(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def dice5(message: Message, replies: Replies) -> None:
     """Roll five dices.
     """
-    _roll_dice(5, command.message, replies)
+    _roll_dice(5, message, replies)
 
 
 def _roll_dice(count: int, quote: Message, replies: Replies) -> None:
