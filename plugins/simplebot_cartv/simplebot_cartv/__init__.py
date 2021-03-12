@@ -1,10 +1,8 @@
 # pylama:ignore=W0613
 
 import requests
-from simplebot import DeltaBot
+import simplebot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 __version__ = '1.0.0'
 tv_emoji, cal_emoji, aster_emoji = '📺', '📆', '✳'
@@ -33,79 +31,71 @@ channels = {
 }
 
 
-@deltabot_hookimpl
-def deltabot_init(bot: DeltaBot) -> None:
-    bot.commands.register(name="/cartv", func=cmd_cartv)
-    bot.commands.register(name="/cartvcv", func=cmd_cv)
-    bot.commands.register(name="/cartvtr", func=cmd_tr)
-    bot.commands.register(name="/cartved", func=cmd_ed)
-    bot.commands.register(name="/cartved2", func=cmd_ed2)
-    bot.commands.register(name="/cartvmv", func=cmd_mv)
-    bot.commands.register(name="/cartvcl", func=cmd_cl)
-    bot.commands.register(name="/cartvca", func=cmd_ca)
-    bot.commands.register(name="/cartvha", func=cmd_ha)
-
-
-def cmd_cartv(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartv(replies: Replies) -> None:
     """Muestra la cartelera de todos los canales de la TV cubana.
     """
-    text = ''
-    for chan in channels.keys():
-        text += get_channel(chan) + '\n\n'
-    replies.add(text=text)
+    replies.add(
+        text='\n\n'.join(_get_channel(chan) for chan in channels.keys()))
 
 
-def cmd_cv(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartvcv(replies: Replies) -> None:
     """Muestra la cartelera del canal Cubavisión.
     """
-    replies.add(text=get_channel('Cubavisión'))
+    replies.add(text=_get_channel('Cubavisión'))
 
 
-def cmd_tr(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartvtr(replies: Replies) -> None:
     """Muestra la cartelera del canal Tele Rebelde.
     """
-    replies.add(text=get_channel('Tele Rebelde'))
+    replies.add(text=_get_channel('Tele Rebelde'))
 
 
-def cmd_ed(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartved(replies: Replies) -> None:
     """Muestra la cartelera del canal Educativo.
     """
-    replies.add(text=get_channel('Educativo'))
+    replies.add(text=_get_channel('Educativo'))
 
 
-def cmd_ed2(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartved2(replies: Replies) -> None:
     """Muestra la cartelera del canal Educativo 2.
     """
-    replies.add(text=get_channel('Educativo 2'))
+    replies.add(text=_get_channel('Educativo 2'))
 
 
-def cmd_mv(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartvmv(replies: Replies) -> None:
     """Muestra la cartelera del canal Multivisión.
     """
-    replies.add(text=get_channel('Multivisión'))
+    replies.add(text=_get_channel('Multivisión'))
 
 
-def cmd_cl(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartvcl(replies: Replies) -> None:
     """Muestra la cartelera del canal Clave.
     """
-    replies.add(text=get_channel('Clave'))
+    replies.add(text=_get_channel('Clave'))
 
 
-def cmd_ca(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartvca(replies: Replies) -> None:
     """Muestra la cartelera del canal Caribe.
     """
-    replies.add(text=get_channel('Caribe'))
+    replies.add(text=_get_channel('Caribe'))
 
 
-def cmd_ha(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def cartvha(replies: Replies) -> None:
     """Muestra la cartelera del canal Habana.
     """
-    replies.add(text=get_channel('Habana'))
+    replies.add(text=_get_channel('Habana'))
 
 
-# ======== Utilities ===============
-
-def get_channel(chan) -> str:
+def _get_channel(chan) -> str:
     with requests.get(channels[chan]) as req:
         req.raise_for_status()
         programs = req.json()
