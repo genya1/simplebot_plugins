@@ -861,7 +861,7 @@ def _toots2text(toots: list, acc_id: int,
             text += '↩️ /m_reply_{}_{}\n'.format(acc_id, t.id)
             text += '⭐ /m_star_{}_{}\n'.format(acc_id, t.id)
             if t.visibility in (Visibility.PUBLIC, Visibility.UNLISTED):
-                text += '🔄 /m_boost_{}_{}\n'.format(acc_id, t.id)
+                text += '🔁 /m_boost_{}_{}\n'.format(acc_id, t.id)
             text += '⏫ /m_cntx_{}_{}\n'.format(acc_id, t.id)
 
         yield text
