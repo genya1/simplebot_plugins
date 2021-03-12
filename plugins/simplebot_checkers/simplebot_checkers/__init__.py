@@ -1,49 +1,36 @@
 
 import os
 
+import simplebot
 from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager
 from .game import BLACK, WHITE, Board
 
 __version__ = '1.0.0'
 DBASE: DBManager
-DBOT: DeltaBot
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global DBASE, DBOT
-    DBOT = bot
-    DBASE = get_db(bot)
-
-    bot.filters.register(name=__name__, func=filter_messages)
-
-    DBOT.commands.register('/checkers_play', cmd_play)
-    DBOT.commands.register('/checkers_surrender', cmd_surrender)
-    DBOT.commands.register('/checkers_new', cmd_new)
-    DBOT.commands.register('/checkers_repeat', cmd_repeat)
+    global DBASE
+    DBASE = _get_db(bot)
 
 
-@deltabot_hookimpl
-def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
+@simplebot.hookimpl
+def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact) -> None:
     game = DBASE.get_game_by_gid(chat.id)
     if game:
         player1, player2 = game['p1'], game['p2']
-        if contact.addr in (DBOT.self_contact.addr, player1, player2):
+        if contact.addr in (bot.self_contact.addr, player1, player2):
             DBASE.delete_game(player1, player2)
-            if contact != DBOT.self_contact:
-                chat.remove_contact(DBOT.self_contact)
+            if contact != bot.self_contact:
+                chat.remove_contact(bot.self_contact)
 
 
-# ======== Filters ===============
-
+@simplebot.filter(name=__name__)
 def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Checkers game groups
     """
@@ -61,28 +48,27 @@ def filter_messages(message: Message, replies: Replies) -> None:
         try:
             board.move(message.text)
             DBASE.set_board(game['p1'], game['p2'], board.export())
-            replies.add(text=run_turn(message.chat.id))
+            replies.add(text=_run_turn(message.chat.id))
         except ValueError:
             replies.add(text='❌ Invalid move!')
 
 
-# ======== Commands ===============
-
-def cmd_play(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def checkers_play(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
     """Invite a friend to play Checkers.
 
     Example: `/checkers_play friend@example.com`
     """
-    if not command.payload:
+    if not payload:
         replies.add(text="Missing address")
         return
 
-    if command.payload == command.bot.self_contact.addr:
+    if payload == bot.self_contact.addr:
         replies.add(text="Sorry, I don't want to play")
         return
 
-    player1 = command.message.get_sender_contact().addr
-    player2 = command.payload
+    player1 = message.get_sender_contact().addr
+    player2 = payload
     if player1 == player2:
         replies.add(text="You can't play with yourself")
         return
@@ -91,24 +77,25 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
 
     if game is None:  # first time playing with player2
         board = Board()
-        chat = command.bot.create_group('🔴 {} 🆚 {} [checkers]'.format(
+        chat = bot.create_group('🔴 {} 🆚 {} [checkers]'.format(
             player1, player2), [player1, player2])
         DBASE.add_game(player1, player2, chat.id, board.export(), player1)
         text = 'Hello {1},\nYou have been invited by {0} to play Checkers'
         text += '\n\n{2}: {0}\n{3}: {1}\n\n'
         text = text.format(player1, player2, board.get_disc(BLACK),
                            board.get_disc(WHITE))
-        replies.add(text=text + run_turn(chat.id), chat=chat)
+        replies.add(text=text + _run_turn(chat.id), chat=chat)
     else:
         text = 'You already have a game group with {}'.format(player2)
-        replies.add(text=text, chat=command.bot.get_chat(game['gid']))
+        replies.add(text=text, chat=bot.get_chat(game['gid']))
 
 
-def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def checkers_surrender(message: Message, replies: Replies) -> None:
     """End the Checkers game in the group it is sent.
     """
-    game = DBASE.get_game_by_gid(command.message.chat.id)
-    loser = command.message.get_sender_contact().addr
+    game = DBASE.get_game_by_gid(message.chat.id)
+    loser = message.get_sender_contact().addr
     # this is not your game group
     if game is None or loser not in (game['p1'], game['p2']):
         replies.add(text='This is not your game group')
@@ -120,11 +107,12 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text=text.format(loser))
 
 
-def cmd_new(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def checkers_new(message: Message, replies: Replies) -> None:
     """Start a new Checkers game in the current game group.
     """
-    sender = command.message.get_sender_contact().addr
-    game = DBASE.get_game_by_gid(command.message.chat.id)
+    sender = message.get_sender_contact().addr
+    game = DBASE.get_game_by_gid(message.chat.id)
     if game is None or sender not in (game['p1'], game['p2']):
         replies.add(text='This is not your game group')
     elif game['board'] is None:
@@ -133,20 +121,19 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
         player2 = game['p2'] if sender == game['p1'] else game['p1']
         text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
             board.get_disc(BLACK), sender, board.get_disc(WHITE), player2)
-        replies.add(text=text + run_turn(command.message.chat.id))
+        replies.add(text=text + _run_turn(message.chat.id))
     else:
         replies.add(text='There is a game running already')
 
 
-def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def checkers_repeat(message: Message, replies: Replies) -> None:
     """Send game board again.
     """
-    replies.add(text=run_turn(command.message.chat.id))
+    replies.add(text=_run_turn(message.chat.id))
 
 
-# ======== Utilities ===============
-
-def run_turn(gid: int) -> str:
+def _run_turn(gid: int) -> str:
     game = DBASE.get_game_by_gid(gid)
     if not game:
         return 'This is not your game group'
@@ -179,7 +166,7 @@ def run_turn(gid: int) -> str:
     return text
 
 
-def get_db(bot: DeltaBot) -> DBManager:
+def _get_db(bot: DeltaBot) -> DBManager:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
