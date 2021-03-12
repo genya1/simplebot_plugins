@@ -1,46 +1,36 @@
 import os
 
+import simplebot
 import writefreely as wf
 from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager
 
 __version__ = '1.0.0'
-dbot: DeltaBot
 db: DBManager
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global dbot, db
-    dbot = bot
-    db = get_db(bot)
+    global db
+    db = _get_db(bot)
 
-    bot.filters.register(name=__name__, func=filter_messages)
-
-    bot.commands.register(name="/wf_login", func=cmd_login,
-                          admin=getdefault('allow_login', '1') != '1')
-    bot.commands.register(name="/wf_logout", func=cmd_logout)
-    bot.commands.register(name="/wf_bridge", func=cmd_bridge, admin=True)
-    bot.commands.register(name="/wf_unbridge", func=cmd_unbridge, admin=True)
+    bot.commands.register(
+        name="/wf_login", func=cmd_login,
+        admin=_getdefault(bot, 'allow_login', '1') != '1')
 
 
-@deltabot_hookimpl
-def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
-    me = dbot.self_contact
+@simplebot.hookimpl
+def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact) -> None:
+    me = bot.self_contact
     if me == contact or len(chat.get_contacts()) <= 1:
         if db.get_chat(chat.id):
             db.del_chat(chat.id)
 
 
-# ======== Filters ===============
-
+@simplebot.filter(name=__name__)
 def filter_messages(message: Message, replies: Replies) -> None:
     """Process messages sent to WriteFreely groups.
     """
@@ -56,29 +46,28 @@ def filter_messages(message: Message, replies: Replies) -> None:
         title, body = None, message.text
 
     acc = db.get_account(chat['account'])
+    assert acc
     client = wf.client(host=acc['host'], token=acc['token'])
     post = client.create_post(
         collection=chat['blog'], title=title, body=body)
     replies.add(text=post['collection']['url'] + post['slug'])
 
 
-# ======== Commands ===============
-
-def cmd_login(command: IncomingCommand, replies: Replies) -> None:
+def cmd_login(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
     """Login to your WriteFreely instance.
 
     Example: `/wf_login https://write.as YourUser YourPassword` or
     `/wf_login https://write.as YourToken`
     """
-    sender = command.message.get_sender_contact()
-    args = command.payload.split(maxsplit=2)
+    sender = message.get_sender_contact()
+    args = payload.split(maxsplit=2)
     if len(args) == 3:
         client = wf.client(host=args[0], user=args[1], password=args[2])
     else:
         client = wf.client(host=args[0], token=args[1])
     db.add_account(sender.addr, client.host, client.token)
     for blog in client.get_collections():
-        g = command.bot.create_group(
+        g = bot.create_group(
             '{} [WF]'.format(blog['title'] or blog['alias']), [sender])
         db.add_chat(g.id, blog['alias'], sender.addr)
         replies.add(text='All messages sent here will be published to'
@@ -87,24 +76,29 @@ def cmd_login(command: IncomingCommand, replies: Replies) -> None:
     replies.add(text='✔️Logged in')
 
 
-def cmd_logout(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def wf_logout(message: Message, replies: Replies) -> None:
     """Logout from your WriteFreely instance.
 
     Example: `/wf_logout`
     """
-    addr = command.message.get_sender_contact().addr
+    addr = message.get_sender_contact().addr
     acc = db.get_account(addr)
-    db.del_account(addr)
-    wf.client(host=acc['host'], token=acc['token']).logout()
-    replies.add(text='✔️Logged out')
+    if acc:
+        db.del_account(addr)
+        wf.client(host=acc['host'], token=acc['token']).logout()
+        replies.add(text='✔️Logged out')
+    else:
+        replies.add(text='❌ You are not logged in.')
 
 
-def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command(admin=True)
+def wf_bridge(payload: str, message: Message, replies: Replies) -> None:
     """Bridge chat with a WriteFreely blog.
 
     Example: `/wf_bridge myblog`
     """
-    addr = command.message.get_sender_contact().addr
+    addr = message.get_sender_contact().addr
     acc = db.get_account(addr)
     if not acc:
         replies.add(text='❌ You are not logged in.')
@@ -112,37 +106,36 @@ def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
 
     client = wf.client(host=acc['host'], token=acc['token'])
     blogs = [blog['alias'] for blog in client.get_collections()]
-    if command.payload not in blogs:
+    if payload not in blogs:
         replies.add(
             text='❌ Invalid blog name, your blogs:\n{}'.format(
                 '\n'.join(blogs)))
         return
-    db.add_chat(command.message.chat.id, command.payload, addr)
+    db.add_chat(message.chat.id, payload, addr)
     text = '✔️All messages sent here will be published in {}/{}'
-    replies.add(text=text.format(acc['host'], command.payload))
+    replies.add(text=text.format(acc['host'], payload))
 
 
-def cmd_unbridge(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command(admin=True)
+def wf_unbridge(message: Message, replies: Replies) -> None:
     """Remove bridge with the WriteFreely blog in the chat it is sent.
 
     Example: `/wf_unbridge`
     """
-    db.del_chat(command.message.chat.id)
+    db.del_chat(message.chat.id)
     replies.add(text='✔️Removed bridge.')
 
 
-# ======== Utilities ===============
-
-def get_db(bot) -> DBManager:
+def _get_db(bot) -> DBManager:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
     return DBManager(os.path.join(path, 'sqlite.db'))
 
 
-def getdefault(key: str, value: str = None) -> str:
-    val = dbot.get(key, scope=__name__)
+def _getdefault(bot: DeltaBot, key: str, value: str = None) -> str:
+    val = bot.get(key, scope=__name__)
     if val is None and value is not None:
-        dbot.set(key, value, scope=__name__)
+        bot.set(key, value, scope=__name__)
         val = value
     return val
