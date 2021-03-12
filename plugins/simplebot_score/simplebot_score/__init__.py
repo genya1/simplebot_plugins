@@ -1,38 +1,27 @@
 
 import os
 
+import simplebot
 from deltachat import Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager
 
 __version__ = '1.0.0'
-dbot: DeltaBot
 db: DBManager
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global dbot, db
-    dbot = bot
-    db = get_db(bot)
+    global db
+    db = _get_db(bot)
 
-    getdefault('score_badge', '🎖️')
-
-    bot.filters.register(name=__name__, func=filter_messages)
-
-    bot.commands.register(name="/scoreSet", func=cmd_set, admin=True)
-    bot.commands.register(name="/score", func=cmd_score)
+    _getdefault(bot, 'score_badge', '🎖️')
 
 
-# ======== Filters ===============
-
-def filter_messages(message: Message, replies: Replies) -> None:
+@simplebot.filter(name=__name__)
+def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Detect messages like +1 or -1 to increase/decrease score.
     """
     if not message.quote:
@@ -41,7 +30,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
     if not score:
         return
     sender = message.get_sender_contact().addr
-    is_admin = dbot.is_admin(sender)
+    is_admin = bot.is_admin(sender)
     if score < 0 and not is_admin:
         return
     if not is_admin and db.get_score(sender) - score < 0:
@@ -59,60 +48,58 @@ def filter_messages(message: Message, replies: Replies) -> None:
     else:
         text = '{0}: {1}{4}\n{2}: {3}{4}'
     text = text.format(
-        dbot.get_contact(receiver).name,
+        bot.get_contact(receiver).name,
         receiver_score,
-        dbot.get_contact(sender).name,
+        bot.get_contact(sender).name,
         sender_score,
-        getdefault('score_badge'))
+        _getdefault(bot, 'score_badge'))
     replies.add(text=text, quote=message)
 
 
-# ======== Commands ===============
-
-def cmd_set(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command(admin=True)
+def scoreSet(bot: DeltaBot, args: list, message: Message, replies: Replies) -> None:
     """Set score for given address.
 
     Example: `/score foo@example.com +100`
     """
-    score = _parse(command.args[1])
+    score = _parse(args[1])
     if not score:
         replies.add(
-            text='❌ Invalid number, use + or -', quote=command.message)
+            text='❌ Invalid number, use + or -', quote=message)
     else:
-        score = _add_score(command.args[0], score)
-        name = dbot.get_contact(command.args[0]).name
-        text = '{}: {}{}'.format(name, score, getdefault('score_badge'))
-        replies.add(text=text, quote=command.message)
+        score = _add_score(args[0], score)
+        name = bot.get_contact(args[0]).name
+        text = '{}: {}{}'.format(name, score, _getdefault(bot, 'score_badge'))
+        replies.add(text=text, quote=message)
 
 
-def cmd_score(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def score(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
     """Get score from given address or your current score if no address is given.
 
     Example: `/score`
     """
-    if command.payload:
-        addr = command.payload
+    if payload:
+        addr = payload
     else:
-        addr = command.message.get_sender_contact().addr
-    name = dbot.get_contact(addr).name
-    badge = getdefault('score_badge')
+        addr = message.get_sender_contact().addr
+    name = bot.get_contact(addr).name
+    badge = _getdefault(bot, 'score_badge')
     replies.add(text='{0}: {1}/{2}{3}'.format(
         name, db.get_score(addr), db.get_score(), badge))
 
 
-# ======== Utilities ===============
-
-def get_db(bot) -> DBManager:
+def _get_db(bot: DeltaBot) -> DBManager:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
     return DBManager(os.path.join(path, 'sqlite.db'))
 
 
-def getdefault(key: str, value: str = None) -> str:
-    val = dbot.get(key, scope=__name__)
+def _getdefault(bot: DeltaBot, key: str, value: str = None) -> str:
+    val = bot.get(key, scope=__name__)
     if val is None and value is not None:
-        dbot.set(key, value, scope=__name__)
+        bot.set(key, value, scope=__name__)
         val = value
     return val
 
