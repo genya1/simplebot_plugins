@@ -3,57 +3,42 @@ import os
 import sqlite3
 from typing import Optional
 
+import simplebot
 from deltachat import Chat, Contact, Message
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager
 
 __version__ = '1.0.0'
 db: DBManager
-dbot: DeltaBot
 ec = '💀 Exquisite Corpse\n\n'
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global db, dbot
-    dbot = bot
-    db = get_db(bot)
-
-    bot.filters.register(name=__name__, func=filter_messages)
-
-    dbot.commands.register('/corpse_new', cmd_new)
-    dbot.commands.register('/corpse_join', cmd_join)
-    dbot.commands.register('/corpse_start', cmd_start)
-    dbot.commands.register('/corpse_end', cmd_end)
-    dbot.commands.register('/corpse_leave', cmd_leave)
-    dbot.commands.register('/corpse_status', cmd_status)
+    global db
+    db = _get_db(bot)
 
 
 # pylama:ignore=W0613
-@deltabot_hookimpl
-def deltabot_member_removed(chat: Chat, contact: Contact,
+@simplebot.hookimpl
+def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact,
                             replies: Replies) -> None:
     g = db.get_game_by_gid(chat.id)
     if not g:
         return
-    if dbot.self_contact == contact or len(chat.get_contacts()) <= 1:
+    if bot.self_contact == contact or len(chat.get_contacts()) <= 1:
         db.delete_game(chat.id)
         return
 
     p = db.get_player_by_addr(contact.addr)
     if p is not None and p['game'] == g['gid']:
-        remove_from_game(p, g)
+        _remove_from_game(bot, p, g)
 
 
-# ======== Filters ===============
-
-def filter_messages(message: Message, replies: Replies) -> None:
+@simplebot.filter(name=__name__)
+def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Process turns in Exquisite Corpse game groups
     """
     if not message.chat.is_group():
@@ -77,26 +62,25 @@ def filter_messages(message: Message, replies: Replies) -> None:
             else:
                 db.set_player(p['addr'], p['round'] + 1, g['gid'])
 
-            p = get_by_round(g['gid'])
+            p = _get_by_round(g['gid'])
 
             if p is None:  # End Game
-                text = end_game(g['gid'])
-                replies.add(text=text, chat=dbot.get_chat(g['gid']))
+                text = _end_game(g['gid'])
+                replies.add(text=text, chat=bot.get_chat(g['gid']))
             else:
                 db.set_turn(g['gid'], p['addr'])
-                run_turn(p, dbot.get_chat(g['gid']), paragraph)
+                _run_turn(bot, p, bot.get_chat(g['gid']), paragraph)
 
 
-# ======== Commands ===============
-
-def cmd_new(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def corpse_new(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Start a new game of Exquisite Corpse.
 
     Example: `/corpse_new`
     """
-    sender = command.message.get_sender_contact()
+    sender = message.get_sender_contact()
 
-    if not command.message.chat.is_group():
+    if not message.chat.is_group():
         replies.add(text='❌ This is not a group.')
         return
     if db.get_player_by_addr(sender.addr):
@@ -104,7 +88,7 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text=text)
         return
 
-    gid = command.message.chat.id
+    gid = message.chat.id
     g = db.get_game_by_gid(gid)
     if g:
         replies.add(
@@ -113,19 +97,20 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
 
     db.add_game(gid)
     db.add_player(sender.addr, 1, gid)
-    replies.add(text=show_status(gid))
+    replies.add(text=_show_status(bot, gid))
 
 
-def cmd_join(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def corpse_join(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Join in a Exquisite Corpse game
 
     Example: `/corpse_join`
     """
-    sender = command.message.get_sender_contact()
-    gid = command.message.chat.id
+    sender = message.get_sender_contact()
+    gid = message.chat.id
     g = db.get_game_by_gid(gid)
 
-    if not command.message.chat.is_group():
+    if not message.chat.is_group():
         replies.add(text='❌ This is not a group.')
         return
     if g is None:
@@ -147,18 +132,19 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
         return
 
     db.add_player(sender.addr, 1, gid)
-    replies.add(text=show_status(gid, g['turn']))
+    replies.add(text=_show_status(bot, gid, g['turn']))
 
 
-def cmd_start(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def corpse_start(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Start Exquisite Corpse game
 
     Example: `/corpse_start`
     """
-    gid = command.message.chat.id
+    gid = message.chat.id
     g = db.get_game_by_gid(gid)
 
-    if not command.message.chat.is_group():
+    if not message.chat.is_group():
         replies.add(text='❌ This is not a group.')
         return
     if g is None:
@@ -173,59 +159,60 @@ def cmd_start(command: IncomingCommand, replies: Replies) -> None:
         return
 
     db.set_text(gid, '')
-    player = get_by_round(gid)
+    player = _get_by_round(gid)
     assert player is not None
     db.set_turn(gid, player['addr'])
-    run_turn(player, command.message.chat, '')
+    _run_turn(bot, player, message.chat, '')
 
 
-def cmd_end(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def corpse_end(message: Message, replies: Replies) -> None:
     """End Exquisite Corpse game
 
     Example: `/corpse_end`
     """
-    replies.add(text=end_game(command.message.chat.id))
+    replies.add(text=_end_game(message.chat.id))
 
 
-def cmd_leave(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def corpse_leave(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Leave Exquisite Corpse game in current group.
 
     Example: `/corpse_leave`
     """
-    p = db.get_player_by_addr(command.message.get_sender_contact().addr)
+    p = db.get_player_by_addr(message.get_sender_contact().addr)
     if p:
-        remove_from_game(p, db.get_game_by_gid(p['game']))
+        _remove_from_game(bot, p, db.get_game_by_gid(p['game']))
     else:
         replies.add(text='❌ You are not playing Exquisite Corpse.')
 
 
-def cmd_status(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def corpse_status(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """Show the game status.
 
     Example: `/corpse_status`
     """
-    if not command.message.chat.is_group():
+    if not message.chat.is_group():
         replies.add(text='❌ This is not a group.')
         return
 
-    g = db.get_game_by_gid(command.message.chat.id)
+    g = db.get_game_by_gid(message.chat.id)
     if g:
-        replies.add(text=show_status(g['gid'], g['turn']))
+        replies.add(text=_show_status(bot, g['gid'], g['turn']))
     else:
         replies.add(text='❌ No game running in this group.')
 
 
-# ======== Utilities ===============
-
-def get_db(bot: DeltaBot) -> DBManager:
+def _get_db(bot: DeltaBot) -> DBManager:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
     return DBManager(os.path.join(path, 'sqlite.db'))
 
 
-def run_turn(player: sqlite3.Row, group: Chat, paragraph: str) -> None:
-    contact = dbot.get_contact(player['addr'])
+def _run_turn(bot: DeltaBot, player: sqlite3.Row, group: Chat, paragraph: str) -> None:
+    contact = bot.get_contact(player['addr'])
     text = ec + "⏳ Round {}/3\n\n{}, it's your turn...".format(
         player['round'], contact.name)
     group.send_text(text)
@@ -237,10 +224,10 @@ def run_turn(player: sqlite3.Row, group: Chat, paragraph: str) -> None:
         text = '📝 You are the first!\nSend a message with at least 10 words.'
         text = ec + text
 
-    dbot.get_chat(contact).send_text(text)
+    bot.get_chat(contact).send_text(text)
 
 
-def show_status(gid: int, turn: str = None) -> str:
+def _show_status(bot: DeltaBot, gid: int, turn: str = None) -> str:
     contacts = db.get_players(gid)
     text = ec + '👤 Players({}):\n'.format(len(contacts))
 
@@ -249,18 +236,18 @@ def show_status(gid: int, turn: str = None) -> str:
     else:
         fstr = '• {0}\n'
     for c in contacts:
-        text += fstr.format(dbot.get_contact(c['addr']).name, c['round'])
+        text += fstr.format(bot.get_contact(c['addr']).name, c['round'])
 
     text += '\n'
     if turn:
-        text += "Turn: {}".format(dbot.get_contact(turn).name)
+        text += "Turn: {}".format(bot.get_contact(turn).name)
     else:
         text += 'Waiting for players...\n\n/corpse_join  /corpse_start'
 
     return text
 
 
-def get_by_round(gid: int) -> Optional[sqlite3.Row]:
+def _get_by_round(gid: int) -> Optional[sqlite3.Row]:
     turn = 1
     p = db.get_player_by_round(gid, turn)
     while p is None and turn < 3:
@@ -269,7 +256,7 @@ def get_by_round(gid: int) -> Optional[sqlite3.Row]:
     return p
 
 
-def end_game(gid: int) -> str:
+def _end_game(gid: int) -> str:
     g = db.get_game_by_gid(gid)
     assert g is not None
     text = ec
@@ -281,15 +268,15 @@ def end_game(gid: int) -> str:
     return text + '\n\n▶️ Play again? /corpse_new'
 
 
-def remove_from_game(player, game) -> None:
+def _remove_from_game(bot: DeltaBot, player: sqlite3.Row, game: sqlite3.Row) -> None:
     db.delete_player(player['addr'])
     if player['addr'] == game['turn']:
-        p = get_by_round(player['game'])
-        chat = dbot.get_chat(player['game'])
+        p = _get_by_round(player['game'])
+        chat = bot.get_chat(player['game'])
         if p is None or len(db.get_players(player['game'])) <= 1:
-            chat.send_text(end_game(player['game']))
+            chat.send_text(_end_game(player['game']))
         else:
             db.set_turn(player['game'], p['addr'])
-            run_turn(p, chat, game['text'])
+            _run_turn(bot, p, chat, game['text'])
     else:
         chat.send_text(game['gid'], game['turn'])
