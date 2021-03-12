@@ -1,19 +1,19 @@
 
 import os
+import sqlite3
 from threading import Thread
 from time import sleep
 from typing import Optional
 
 import feedparser
 import html2text
+import simplebot
 from deltachat import Chat, Contact, Message
 from deltachat.capi import lib
 from deltachat.cutil import as_dc_charpointer
 from feedparser.exceptions import CharacterEncodingOverride
 from simplebot import DeltaBot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 from .db import DBManager
 
@@ -21,34 +21,26 @@ __version__ = '1.0.0'
 feedparser.USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0)'
 feedparser.USER_AGENT += ' Gecko/20100101 Firefox/60.0'
 html2text.config.WRAP_LINKS = False
-dbot: DeltaBot
 db: DBManager
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global dbot, db
-    dbot = bot
-    db = get_db(bot)
+    global db
+    db = _get_db(bot)
 
-    getdefault('delay', 60*5)
-    getdefault('max_feed_count', -1)
-
-    dbot.commands.register('/feed_sub', cmd_sub)
-    dbot.commands.register('/feed_unsub', cmd_unsub)
-    dbot.commands.register('/feed_list', cmd_list)
+    _getdefault(bot, 'delay', 60*5)
+    _getdefault(bot, 'max_feed_count', -1)
 
 
-@deltabot_hookimpl
+@simplebot.hookimpl
 def deltabot_start(bot: DeltaBot) -> None:
-    Thread(target=check_feeds, daemon=True).start()
+    Thread(target=_check_feeds, daemon=True).start()
 
 
-@deltabot_hookimpl
-def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
-    me = dbot.self_contact
+@simplebot.hookimpl
+def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact) -> None:
+    me = bot.self_contact
     if me == contact or len(chat.get_contacts()) <= 1:
         feeds = db.get_feeds(chat.id)
         if feeds:
@@ -58,18 +50,17 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
                     db.remove_feed(feed['url'])
 
 
-# ======== Commands ===============
-
-def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def feed_sub(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
     """Subscribe current chat to the given feed.
     """
-    url = db.normalize_url(command.payload)
+    url = db.normalize_url(payload)
     feed = db.get_feed(url)
 
     if feed:
         d = feedparser.parse(feed['url'])
     else:
-        max_fc = int(getdefault('max_feed_count'))
+        max_fc = int(_getdefault(bot, 'max_feed_count'))
         if 0 <= max_fc <= len(db.get_feeds()):
             replies.add(text='Sorry, maximum number of feeds reached')
             return
@@ -78,8 +69,7 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
         if (d.get('bozo') == 1 and not isinstance(
                 bozo_exception, CharacterEncodingOverride)) or not d.entries:
             replies.add(text='Invalid feed url: {}'.format(url))
-            command.bot.logger.warning(
-                'Invalid feed %s: %s', url, bozo_exception)
+            bot.logger.warning('Invalid feed %s: %s', url, bozo_exception)
             return
         feed = dict(
             url=url,
@@ -88,13 +78,13 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
             latest=get_latest_date(d.entries),
         )
         db.add_feed(url, feed['etag'], feed['modified'], feed['latest'])
+    assert feed
 
-    if command.message.chat.is_group():
-        chat = command.message.chat
+    if message.chat.is_group():
+        chat = message.chat
     else:
-        chat = command.bot.create_group(
-            d.feed.get('title') or url,
-            [command.message.get_sender_contact()])
+        chat = bot.create_group(
+            d.feed.get('title') or url, [message.get_sender_contact()])
 
     if chat.id in db.get_fchats(feed['url']):
         replies.add(text='Chat alredy subscribed to that feed.', chat=chat)
@@ -114,62 +104,62 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text=text, chat=chat)
 
 
-def cmd_unsub(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def feed_unsub(payload: str, message: Message, replies: Replies) -> None:
     """Unsubscribe current chat from the given feed.
     """
-    url = command.payload
+    url = payload
     feed = db.get_feed(url)
     if not feed:
         replies.add(text='Unknow feed: {}'.format(url))
         return
 
-    if command.message.chat.id not in db.get_fchats(feed['url']):
+    if message.chat.id not in db.get_fchats(feed['url']):
         replies.add(
             text='This chat is not subscribed to: {}'.format(feed['url']))
         return
 
-    db.remove_fchat(command.message.chat.id, feed['url'])
+    db.remove_fchat(message.chat.id, feed['url'])
     if not db.get_fchats(feed['url']):
         db.remove_feed(feed['url'])
     replies.add(text='Chat unsubscribed from: {}'.format(feed['url']))
 
 
-def cmd_list(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def feed_list(message: Message, replies: Replies) -> None:
     """List feed subscriptions for the current chat.
     """
-    feeds = db.get_feeds(command.message.chat.id)
+    feeds = db.get_feeds(message.chat.id)
     text = '\n\n'.join(f['url'] for f in feeds)
     replies.add(text=text or 'No feed subscriptions in this chat')
 
 
-# ======== Utilities ===============
-
-def check_feeds() -> None:
+def _check_feeds(bot: DeltaBot) -> None:
     while True:
-        dbot.logger.debug('Checking feeds')
+        bot.logger.debug('Checking feeds')
         for f in db.get_feeds():
             try:
-                _check_feed(f)
+                _check_feed(bot, f)
             except Exception as err:
-                dbot.logger.exception(err)
-        sleep(int(getdefault('delay')))
+                bot.logger.exception(err)
+        sleep(int(_getdefault(bot, 'delay')))
 
 
-def _check_feed(f) -> None:
+def _check_feed(bot: DeltaBot, f: sqlite3.Row) -> None:
     fchats = db.get_fchats(f['url'])
 
     if not fchats:
         db.remove_feed(f['url'])
         return
 
-    dbot.logger.debug('Checking feed: %s', f['url'])
+    bot.logger.debug('Checking feed: %s', f['url'])
     d = feedparser.parse(
         f['url'], etag=f['etag'], modified=f['modified'])
 
     bozo_exception = d.get('bozo_exception', '')
     if d.get('bozo') == 1 and not isinstance(
             bozo_exception, CharacterEncodingOverride):
-        dbot.logger.exception(bozo_exception)
+        bot.logger.exception(bozo_exception)
         return
 
     if d.entries and f['latest']:
@@ -181,9 +171,9 @@ def _check_feed(f) -> None:
     html = format_entries(d.entries[:50])
     for gid in fchats:
         try:
-            msg = Message.new_empty(dbot.account, "text")
+            msg = Message.new_empty(bot.account, "text")
             lib.dc_msg_set_html(msg._dc_msg, as_dc_charpointer(html))
-            dbot.get_chat(gid).send_msg(msg)
+            bot.get_chat(gid).send_msg(msg)
         except (ValueError, AttributeError):
             db.remove_fchat(gid)
 
@@ -238,15 +228,15 @@ def get_latest_date(entries: list) -> Optional[str]:
     return ' '.join(map(str, max(dates))) if dates else None
 
 
-def getdefault(key: str, value=None) -> str:
-    val = dbot.get(key, scope=__name__)
+def _getdefault(bot: DeltaBot, key: str, value=None) -> str:
+    val = bot.get(key, scope=__name__)
     if val is None and value is not None:
-        dbot.set(key, value, scope=__name__)
+        bot.set(key, value, scope=__name__)
         val = value
     return val
 
 
-def get_db(bot) -> DBManager:
+def _get_db(bot: DeltaBot) -> DBManager:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
