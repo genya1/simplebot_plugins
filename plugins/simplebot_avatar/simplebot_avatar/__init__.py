@@ -4,10 +4,8 @@ from urllib.parse import quote_plus
 
 import bs4
 import requests
-from simplebot import DeltaBot
+import simplebot
 from simplebot.bot import Replies
-from simplebot.commands import IncomingCommand
-from simplebot.hookspec import deltabot_hookimpl
 
 __version__ = '1.0.0'
 HEADERS = {
@@ -15,33 +13,23 @@ HEADERS = {
     ' Gecko/20100101 Firefox/60.0'}
 
 
-# ======== Hooks ===============
-
-@deltabot_hookimpl
-def deltabot_init(bot: DeltaBot) -> None:
-    bot.commands.register(name='/avatar_cat', func=cmd_cat)
-    bot.commands.register(name='/avatar_bird', func=cmd_bird)
-
-
-# ======== Commands ===============
-
-def cmd_cat(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def avatar_cat(payload: str, replies: Replies) -> None:
     """Generate a cat avatar based on the given text.
     If no text is given a random avatar is generated.
     """
-    replies.add(**get_message(command.payload, '2016_cat-generator'))
+    replies.add(**_get_reply(payload, '2016_cat-generator'))
 
 
-def cmd_bird(command: IncomingCommand, replies: Replies) -> None:
+@simplebot.command
+def avatar_bird(payload: str, replies: Replies) -> None:
     """Generate a bird avatar based on the given text.
     If no text is given a random avatar is generated.
     """
-    replies.add(**get_message(command.payload, '2019_bird-generator'))
+    replies.add(**_get_reply(payload, '2019_bird-generator'))
 
 
-# ======== Utilities ===============
-
-def get_message(text: str, generator: str) -> dict:
+def _get_reply(text: str, generator: str) -> dict:
     url = 'https://www.peppercarrot.com/extras/html/{}/'.format(generator)
     if not text:
         with requests.get(url, headers=HEADERS) as resp:
