@@ -115,10 +115,8 @@ def m_login(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> 
 
     addr = message.get_sender_contact().addr
     url = _rmprefix(api_url, 'https://')
-    hgroup = bot.create_group(
-        'Home ({}@{})'.format(uname, url), [addr])
-    ngroup = bot.create_group(
-        'Notifications ({}@{})'.format(uname, url), [addr])
+    hgroup = bot.create_group('Home ({})'.format(url), [addr])
+    ngroup = bot.create_group('Notifications ({})'.format(url), [addr])
 
     db.add_account(email, passwd, api_url, uname, addr, hgroup.id,
                    ngroup.id, last_home, last_notif)
