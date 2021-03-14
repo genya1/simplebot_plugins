@@ -1049,7 +1049,7 @@ def _listen_to_mastodon(bot: DeltaBot) -> None:
                     m = _get_session(acc)
                     _check_notifications(bot, acc, m)
                     _check_home(bot, acc, m)
-                except (mastodon.MastodonUnauthorizedError, ssl.SSLCertVerificationError):
+                except (mastodon.MastodonUnauthorizedError, mastodon.MastodonAPIError, ssl.SSLCertVerificationError):
                     db.remove_account(acc['id'])
                     bot.get_chat(acc['addr']).send_text(
                         'ERROR! You have been logged out from: ' + acc['api_url'])
