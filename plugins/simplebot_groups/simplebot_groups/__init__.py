@@ -254,8 +254,9 @@ def group_join(bot: DeltaBot, args: list, message: Message, replies: Replies) ->
     sender = message.get_sender_contact()
     is_admin = bot.is_admin(sender.addr)
     text = '{}\n\n{}\n\n⬅️ /group_remove_{}'
-    if args[0].startswith('g'):
-        gid = int(args[0][1:])
+    arg = args[0] if args else ''
+    if arg.startswith('g'):
+        gid = int(arg[1:])
         gr = db.get_group(gid)
         if gr:
             g = bot.get_chat(gr['id'])
@@ -266,12 +267,12 @@ def group_join(bot: DeltaBot, args: list, message: Message, replies: Replies) ->
             elif len(contacts) < int(_getdefault(bot, 'max_group_size')) or is_admin:
                 _add_contact(g, sender)
                 replies.add(chat=bot.get_chat(sender), text=text.format(
-                    g.get_name(), gr['topic'] or '-', args[0]))
+                    g.get_name(), gr['topic'] or '-', arg))
             else:
                 replies.add(text='❌ Group is full')
             return
-    elif args[0].startswith('c'):
-        gid = int(args[0][1:])
+    elif arg.startswith('c'):
+        gid = int(arg[1:])
         ch = db.get_channel_by_id(gid)
         if ch:
             for g in _get_cchats(bot, ch['id'], include_admin=True):
@@ -283,7 +284,7 @@ def group_join(bot: DeltaBot, args: list, message: Message, replies: Replies) ->
             g = bot.create_group(ch['name'], [sender])
             db.add_cchat(g.id, ch['id'])
             replies.add(text=text.format(
-                ch['name'], ch['topic'] or '-', args[0]), chat=g)
+                ch['name'], ch['topic'] or '-', arg), chat=g)
             return
 
     replies.add(text='❌ Invalid ID')
