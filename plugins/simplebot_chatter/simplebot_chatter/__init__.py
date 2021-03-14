@@ -1,5 +1,4 @@
 import os
-import pathlib
 import random
 
 import simplebot
@@ -142,5 +141,4 @@ def _get_db_uri(bot) -> str:
     path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
-    path = os.path.join(path, 'db.sqlite3')
-    return 'sqlite:///' + _rmprefix(pathlib.Path(path).as_uri(), 'file://')
+    return 'sqlite:///' + os.path.abspath(os.path.join(path, 'db.sqlite3'))
