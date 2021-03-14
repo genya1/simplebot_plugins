@@ -35,7 +35,7 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 @simplebot.hookimpl
 def deltabot_start(bot: DeltaBot) -> None:
-    Thread(target=_check_feeds, daemon=True).start()
+    Thread(target=_check_feeds, args=(bot,), daemon=True).start()
 
 
 @simplebot.hookimpl
