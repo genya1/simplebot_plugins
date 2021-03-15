@@ -117,6 +117,7 @@ def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
 
         db.set_channel_last_pub(ch['id'], time.time())
         channel_posts.put((message, _get_cchats(bot, ch['id'])))
+        replies.add(text='✔️Published', quote=message)
     elif ch:
         replies.add(text='❌ Only channel operators can do that.')
 
