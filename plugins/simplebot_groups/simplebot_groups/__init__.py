@@ -72,6 +72,20 @@ def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact) -> None
 
 
 @simplebot.hookimpl
+def deltabot_image_changed(deleted: bool, bot: DeltaBot, chat: Chat) -> None:
+    ch = db.get_channel(chat.id)
+    if ch and ch['admin'] == chat.id:
+        for cchat in _get_cchats(bot, ch['id']):
+            try:
+                if deleted:
+                    cchat.delete_profile_image()
+                else:
+                    cchat.set_profile_image(chat.get_profile_image())
+            except ValueError as ex:
+                bot.logger.exception(ex)
+
+
+@simplebot.hookimpl
 def deltabot_ban(bot: DeltaBot, contact: Contact) -> None:
     me = bot.self_contact
     for g in db.get_groups():
