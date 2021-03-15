@@ -50,7 +50,8 @@ def filter_messages(message: Message, replies: Replies) -> None:
     client = wf.client(host=acc['host'], token=acc['token'])
     post = client.create_post(
         collection=chat['blog'], title=title, body=body)
-    replies.add(text=post['collection']['url'] + post['slug'])
+    replies.add(
+        text=post['collection']['url'] + post['slug'], quote=message)
 
 
 def cmd_login(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> None:
