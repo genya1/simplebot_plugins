@@ -78,11 +78,11 @@ def deltabot_start(bot: DeltaBot) -> None:
     trainer.train('chatterbot.corpus.' + corpus.get(locale, 'english'))
 
 
-@simplebot.filter(name=__name__)
+@simplebot.filter(name=__name__, trylast=True)
 def filter_messages(message: Message, bot: DeltaBot, replies: Replies) -> None:
     """Natural language processing and learning.
     """
-    if not message.text:
+    if replies.has_replies() or not message.text:
         return
 
     self_contact = bot.self_contact
