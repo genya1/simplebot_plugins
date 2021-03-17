@@ -9,8 +9,8 @@ from typing import Generator
 import qrcode
 import simplebot
 from deltachat import Chat, Contact, Message
-from deltachat.capi import ffi, lib
-from deltachat.cutil import as_dc_charpointer, from_dc_charpointer
+from deltachat.capi import lib
+from deltachat.cutil import from_dc_charpointer
 from jinja2 import Template
 from simplebot import DeltaBot
 from simplebot.bot import Replies
@@ -499,23 +499,12 @@ def _send_diffusion(bot: DeltaBot, message: Message, chats: list) -> None:
     filename = message.filename
     quote = message.quote
     sender = _get_name(message.get_sender_contact())
+    replies = Replies(message, logger=bot.logger)
     for chat in chats:
-        msg = Message(bot.account, ffi.gc(
-            lib.dc_msg_new(bot.account._dc_context, message._view_type),
-            lib.dc_msg_unref
-        ))
-        if text:
-            msg.set_text(text)
-        if html:
-            lib.dc_msg_set_html(msg._dc_msg, as_dc_charpointer(html))
-        if filename:
-            msg.set_file(filename)
-        if quote:
-            msg.quote = quote
-        lib.dc_msg_set_override_sender_name(
-            msg._dc_msg, as_dc_charpointer(sender))
-        try:
-            msg = chat.send_msg(msg)
-            bot.logger.info(log.format(msg.id, msg.chat, msg.text[:50]))
-        except ValueError as err:
-            bot.logger.exception(err)
+        replies.add(text=text, html=html, sender=sender, quote=quote,
+                    filename=filename, viewtype=message._view_type,
+                    chat=chat)
+    try:
+        replies.send_reply_messages()
+    except ValueError as err:
+        bot.logger.exception(err)

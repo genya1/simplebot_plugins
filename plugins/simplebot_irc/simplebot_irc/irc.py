@@ -3,10 +3,8 @@ from threading import Thread
 
 import irc.bot
 import irc.client
-from deltachat import Message
-from deltachat.capi import lib
-from deltachat.cutil import as_dc_charpointer
 from simplebot import DeltaBot
+from simplebot.bot import Replies
 
 from .database import DBManager
 
@@ -104,11 +102,10 @@ class IRCBot(irc.bot.SingleServerIRCBot):
         if not gid:
             self.dbot.logger.warning('Chat not found for room: %s', e.target)
             return
-        msg = Message.new_empty(self.dbot.account, "text")
-        lib.dc_msg_set_override_sender_name(
-            msg._dc_msg, as_dc_charpointer(sender))
-        msg.set_text(' '.join(e.arguments))
-        self.dbot.get_chat(gid).send_msg(msg)
+        replies = Replies(self.dbot, logger=self.dbot.logger)
+        replies.add(text=' '.join(e.arguments), sender=sender,
+                    chat=self.dbot.get_chat(gid))
+        replies.send_reply_messages()
 
     def on_notopic(self, c, e) -> None:
         chan = self.channels[e.arguments[0]]

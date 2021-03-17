@@ -9,8 +9,6 @@ import feedparser
 import html2text
 import simplebot
 from deltachat import Chat, Contact, Message
-from deltachat.capi import lib
-from deltachat.cutil import as_dc_charpointer
 from feedparser.exceptions import CharacterEncodingOverride
 from simplebot import DeltaBot
 from simplebot.bot import Replies
@@ -169,13 +167,13 @@ def _check_feed(bot: DeltaBot, f: sqlite3.Row) -> None:
         return
 
     html = format_entries(d.entries[:50])
+    replies = Replies(bot, logger=bot.logger)
     for gid in fchats:
         try:
-            msg = Message.new_empty(bot.account, "text")
-            lib.dc_msg_set_html(msg._dc_msg, as_dc_charpointer(html))
-            bot.get_chat(gid).send_msg(msg)
+            replies.add(html=html, chat=bot.get_chat(gid))
         except (ValueError, AttributeError):
             db.remove_fchat(gid)
+    replies.send_reply_messages()
 
     latest = get_latest_date(d.entries) or f['latest']
     modified = d.get('modified') or d.get('updated')
