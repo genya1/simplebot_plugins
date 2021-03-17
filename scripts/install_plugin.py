@@ -3,9 +3,8 @@ import os
 
 
 if __name__ == '__main__':
-    pdir = 'plugins'
-    if not os.path.exists(pdir):
-        pdir = os.path.join(os.path.dirname(os.path.dirname(__file__)), pdir)
+    pdir = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), 'plugins')
     plugins = sorted(os.listdir(pdir))
     pcount = len(plugins)
 
