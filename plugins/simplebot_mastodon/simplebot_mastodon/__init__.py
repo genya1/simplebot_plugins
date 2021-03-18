@@ -1,9 +1,9 @@
 
 import os
 import sqlite3
-import tempfile
 import time
 from enum import Enum
+from tempfile import NamedTemporaryFile
 from threading import Thread
 from typing import Any, Generator
 
@@ -260,12 +260,14 @@ def m_dm(bot: DeltaBot, payload: str, message: Message, replies: Replies) -> Non
         db.add_pchat(g.id, payload, acc['id'])
 
         r = requests.get(user.avatar_static)
-        with tempfile.NamedTemporaryFile(suffix='.jpg') as fp:
-            fp.write(r.content)
-            try:
-                g.set_profile_image(fp.name)
-            except ValueError as err:
-                bot.logger.exception(err)
+        with NamedTemporaryFile(dir=bot.account.get_blobdir(), suffix='.jpg', delete=False) as file:
+            path = file.name
+        with open(path, "wb") as file:
+            file.write(r.content)
+        try:
+            g.set_profile_image(path)
+        except ValueError as err:
+            bot.logger.exception(err)
         replies.add(
             text='Private chat with: ' + user.acct, chat=g)
 
@@ -989,12 +991,14 @@ def _check_notifications(bot: DeltaBot, acc: sqlite3.Row, m: mastodon.Mastodon) 
             db.add_pchat(g.id, dm.account.acct, acc['id'])
 
             r = requests.get(dm.account.avatar_static)
-            with tempfile.NamedTemporaryFile(suffix='.jpg') as fp:
-                fp.write(r.content)
-                try:
-                    g.set_profile_image(fp.name)
-                except ValueError as err:
-                    bot.logger.exception(err)
+            with NamedTemporaryFile(dir=bot.account.get_blobdir(), suffix='.jpg', delete=False) as file:
+                path = file.name
+            with open(path, "wb") as file:
+                file.write(r.content)
+            try:
+                g.set_profile_image(path)
+            except ValueError as err:
+                bot.logger.exception(err)
 
             g.send_text(text)
 

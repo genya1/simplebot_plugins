@@ -4,9 +4,9 @@ import mimetypes
 import os
 import re
 import shutil
-import tempfile
 import zipfile
 import zlib
+from tempfile import NamedTemporaryFile
 from urllib.parse import quote, quote_plus, unquote_plus
 
 import bs4
@@ -453,20 +453,22 @@ def get_ext(r) -> str:
     return ext
 
 
-def save_file(data, ext: str) -> str:
-    fd, path = tempfile.mkstemp(prefix='web-', suffix=ext)
+def save_file(bot, data, ext: str) -> str:
+    with NamedTemporaryFile(dir=bot.account.get_blobdir(), prefix='web-', suffix=ext, delete=False) as file:
+        path = file.name
     if isinstance(data, str):
         mode = 'w'
     else:
         mode = 'wb'
-    with open(fd, mode) as f:
-        f.write(data)
+    with open(path, mode) as file:
+        file.write(data)
     return path
 
 
-def save_htmlzip(html) -> str:
-    fd, path = tempfile.mkstemp(prefix='web-', suffix='.html.zip')
-    with open(fd, 'wb') as f:
+def save_htmlzip(bot, html) -> str:
+    with NamedTemporaryFile(dir=bot.account.get_blobdir(), prefix='web-', suffix='.html.zip', delete=False) as file:
+        path = file.name
+    with open(path, 'wb') as f:
         with zipfile.ZipFile(f, 'w', compression=zipfile.ZIP_DEFLATED) as fzip:
             fzip.writestr('index.html', html)
     return path
@@ -490,11 +492,11 @@ def _download_file(bot: DeltaBot, url: str, mode: str = 'htmlzip',
                 html = html2read(html)
             if mode == 'md':
                 return dict(text=r.url,
-                            filename=save_file(html2text(html), '.md'))
+                            filename=save_file(bot, html2text(html), '.md'))
             if mode == 'html':
                 return dict(text=r.url,
-                            filename=save_file(html, '.html'))
-            return dict(text=r.url, filename=save_htmlzip(html))
+                            filename=save_file(bot, html, '.html'))
+            return dict(text=r.url, filename=save_htmlzip(bot, html))
         data, ext = _process_file(bot, r)
         return dict(text=r.url, filename='web'+(ext or ''),
                     bytefile=io.BytesIO(data))
