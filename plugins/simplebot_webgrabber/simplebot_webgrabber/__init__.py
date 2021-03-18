@@ -103,7 +103,7 @@ def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
                         size = '>5MB'
                         break
                 else:
-                    size = '{:,}'.format(size)
+                    size = '{:,}'.format(_size)
             ctype = r.headers.get('content-type', '').split(';')[0] or '-'
             kwargs['text'] = 'Content Type: {}\nContent Size: {}'.format(
                 ctype, size)
