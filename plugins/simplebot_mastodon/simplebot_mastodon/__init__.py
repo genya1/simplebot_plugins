@@ -288,7 +288,7 @@ def m_reply(payload: str, message: Message, replies: Replies) -> None:
         replies.add(text='Invalid toot or account id')
         return
 
-    _toot(_get_session(acc), text=text, filename=command.message.filename,
+    _toot(_get_session(acc), text=text, filename=message.filename,
           in_reply_to=toot_id)
 
 
