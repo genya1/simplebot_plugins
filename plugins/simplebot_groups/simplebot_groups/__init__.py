@@ -108,6 +108,8 @@ def filter_messages(bot: DeltaBot, message: Message, replies: Replies) -> None:
     """
     ch = db.get_channel(message.chat.id)
     if ch and ch['admin'] == message.chat.id:
+        if message.get_sender_contact() not in message.chat.get_contacts():
+            return
         max_size = int(_getdefault(bot, 'max_file_size'))
         if message.filename and os.path.getsize(message.filename) > max_size:
             replies.add(
