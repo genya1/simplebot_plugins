@@ -1,5 +1,6 @@
 
 import os
+import re
 
 import simplebot
 from deltachat import Chat, Contact, Message
@@ -29,13 +30,19 @@ def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact) -> None
             if contact != bot.self_contact:
                 chat.remove_contact(bot.self_contact)
 
+@staticmethod
+def valid_message_text(message_text) -> bool:
+    """Utility method to check whether inputted message text is valid
+    """
+    message_text_length = len(message_text)
+    return message_text_length < 2 or message_text_length > 14 or not message_text_length % 2 == 0 or \
+       not message_text.isalnum() or message_text.isalpha() or message_text.isdigit()
 
 @simplebot.filter(name=__name__)
 def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Checkers game groups
     """
-    if len(message.text) not in (2, 4) or not message.text.isalnum() or \
-       message.text.isalpha() or message.text.isdigit():
+    if not valid_message_text(message.text):
         return
     game = DBASE.get_game_by_gid(message.chat.id)
     if game is None or game['board'] is None:
@@ -46,7 +53,15 @@ def filter_messages(message: Message, replies: Replies) -> None:
     player = BLACK if game['black'] == player else WHITE
     if board.turn == player:
         try:
-            board.move(message.text)
+            input_positions = re.findall('..?', message.text)
+            input_positions_len = len(input_positions)
+            for index, position in enumerate(input_positions):
+                next_index = index + 1
+                if input_positions_len == 2:
+                    board.move(position)
+                elif next_index < input_positions_len:
+                    board.move("{}{}".format(position, input_positions[next_index]))
+
             DBASE.set_board(game['p1'], game['p2'], board.export())
             replies.add(text=_run_turn(message.chat.id))
         except ValueError:
