@@ -114,7 +114,7 @@ def c4_score(message: Message, replies: Replies) -> None:
     if game is None:
         replies.add(text='This is not your game group')
     else:
-        text = '{} won {} times and {} won {} times.'
+        text = '📊 Score:\n{1} {0}\n{3} {2}'
         replies.add(text=text.format(game['p1'], game['p1_wins'], game['p2'], game['p2_wins']))
 
 @simplebot.command
