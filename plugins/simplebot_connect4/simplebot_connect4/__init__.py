@@ -114,7 +114,6 @@ def c4_score(message: Message, replies: Replies) -> None:
     if game is None:
         replies.add(text='This is not your game group')
     else:
-        db.set_board(game['p1'], game['p2'], None)
         text = '{} won {} times and {} won {} times.'
         replies.add(text=text.format(game['p1'], game['p1_wins'], game['p2'], game['p2_wins']))
 
