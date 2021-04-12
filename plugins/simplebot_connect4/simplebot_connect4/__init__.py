@@ -175,7 +175,7 @@ def _run_turn(gid: int) -> str:
                 winner = '{} {}'.format(b.get_disc(WHITE), p2)
             db.set_wins(g['p1'], g['p2'], winner_str)
             g = db.get_game_by_gid(gid) # to get current wins after this turn
-            text = '🏆 Game over.\n{} Wins! {} won {} times and {} won {} times.'\
+            text = '🏆 Game over.\n{0} wins!\n\n📊 Score:\n{2} {1}\n{4} {3}'\
                 .format(winner, g['p1'], g['p1_wins'], g['p2'], g['p2_wins'])
         text += '\n\n{}\n\n▶️ Play again? /c4_new'.format(b)
     return text
