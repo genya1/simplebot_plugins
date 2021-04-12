@@ -30,7 +30,6 @@ def deltabot_member_removed(bot: DeltaBot, chat: Chat, contact: Contact) -> None
             if contact != bot.self_contact:
                 chat.remove_contact(bot.self_contact)
 
-@staticmethod
 def valid_message_text(message_text) -> bool:
     """Utility method to check whether inputted message text is valid
     """
