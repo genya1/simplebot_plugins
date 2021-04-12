@@ -106,7 +106,7 @@ def c4_surrender(message: Message, replies: Replies) -> None:
         replies.add(text=text.format(loser))
 
 @simplebot.command
-def c4_wins(message: Message, replies: Replies) -> None:
+def c4_score(message: Message, replies: Replies) -> None:
     """Get Connect4 cumulative wins
     """
     game = db.get_game_by_gid(message.chat.id)
